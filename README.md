@@ -1,6 +1,6 @@
 # CareerMesh
 
-**CareerMesh is a personal career intelligence system that connects your experience, skills, projects, resumes, and job opportunities to help you create better, more targeted job applications.**
+**CareerMesh is an AI powered career intelligence system that connects your experience, skills, projects, resumes, and job opportunities to help you create better, more targeted job applications.**
 
 > 🚧 CareerMesh is currently under active development.
 
