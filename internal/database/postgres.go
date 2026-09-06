@@ -17,8 +17,8 @@ type Config struct {
 	SSLMode  string
 }
 
-func NewPool(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
-	dsn := fmt.Sprintf(
+func (cfg Config) DSN() string {
+	return fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		cfg.User,
 		cfg.Password,
@@ -27,8 +27,10 @@ func NewPool(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
 		cfg.Name,
 		cfg.SSLMode,
 	)
+}
 
-	poolConfig, err := pgxpool.ParseConfig(dsn)
+func NewPool(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
+	poolConfig, err := pgxpool.ParseConfig(cfg.DSN())
 	if err != nil {
 		return nil, fmt.Errorf("parse database config: %w", err)
 	}
