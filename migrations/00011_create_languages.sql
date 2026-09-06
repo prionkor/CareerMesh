@@ -12,7 +12,7 @@ CREATE TYPE language_proficiency AS ENUM (
 );
 
 CREATE TABLE languages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     proficiency language_proficiency NOT NULL,
