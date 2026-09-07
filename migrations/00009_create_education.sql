@@ -3,7 +3,7 @@
 -- +goose Up
 
 CREATE TABLE education (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     institution TEXT NOT NULL,
     degree TEXT NOT NULL DEFAULT '',

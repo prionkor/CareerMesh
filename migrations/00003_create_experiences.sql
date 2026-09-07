@@ -13,7 +13,7 @@ CREATE TYPE employment_type AS ENUM (
 );
 
 CREATE TABLE experiences (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     company TEXT NOT NULL,
     website TEXT NOT NULL DEFAULT '',

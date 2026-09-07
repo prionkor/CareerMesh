@@ -3,7 +3,7 @@
 -- +goose Up
 
 CREATE TABLE profiles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     headline TEXT NOT NULL DEFAULT '',
