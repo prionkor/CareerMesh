@@ -135,8 +135,8 @@ The roadmap will evolve as the project develops.
 
 ### Phase 1 - Career Foundation
 
-- [ ] Project structure
-- [ ] PostgreSQL setup
+- [x] Project structure
+- [x] PostgreSQL setup
 - [ ] Career profile
 - [ ] Experience
 - [ ] Projects
