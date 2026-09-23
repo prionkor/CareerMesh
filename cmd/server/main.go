@@ -5,8 +5,10 @@ import (
 	"log"
 	"os"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/joho/godotenv"
 	"github.com/prionkor/careermesh/internal/database"
+	"github.com/prionkor/careermesh/internal/profile"
 )
 
 func main() {
@@ -31,4 +33,23 @@ func main() {
 	defer db.Close()
 
 	log.Println("database connected")
+
+	profileRepository := profile.NewRepository(db)
+	profileService := profile.NewService(profileRepository)
+	profileHandler := profile.NewHandler(profileService)
+
+	app := fiber.New()
+
+	v1 := app.Group("/api/v1")
+	profileHandler.RegisterRoutes(v1)
+
+	addr := os.Getenv("SERVER_ADDR")
+	if addr == "" {
+		addr = ":8080"
+	}
+
+	log.Printf("server listening on %s", addr)
+	if err := app.Listen(addr); err != nil {
+		log.Fatalf("server failed: %v", err)
+	}
 }
