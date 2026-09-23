@@ -12,4 +12,11 @@ func (h *Handler) RegisterRoutes(v1 fiber.Router) {
 
 	// get profile by user id
 	user.Get("/:id/profile", h.GetProfile)
+
+	user.Get("/:id/experiences", h.GetExperiences)
+	user.Get("/:id/projects", h.GetProjects)
+	user.Get("/:id/skills", h.GetSkills)
+	user.Get("/:id/education", h.GetEducation)
+	user.Get("/:id/certifications", h.GetCertifications)
+	user.Get("/:id/languages", h.GetLanguages)
 }

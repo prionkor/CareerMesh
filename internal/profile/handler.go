@@ -11,15 +11,6 @@ import (
 	"github.com/prionkor/careermesh/models"
 )
 
-// DevUserIDHeader is a temporary, explicit development-only way to identify
-// the acting user for POST /api/v1/profiles until real authentication
-// exists. There is currently no authenticated session or request context
-// carrying a user ID anywhere in the project, so this header must be sent
-// by the client. Replace this with the authenticated user ID once
-// authentication is implemented; do not build a fake authentication layer
-// around it.
-const DevUserIDHeader = "X-Debug-User-ID"
-
 // Handler exposes the Profile service over HTTP.
 type Handler struct {
 	service *Service
@@ -69,9 +60,9 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 
 // Create handles POST /api/v1/profiles.
 func (h *Handler) Create(c fiber.Ctx) error {
-	userID, err := uuid.Parse(c.Get(DevUserIDHeader))
+	userID, err := uuid.Parse(c.Get(httpapi.DevUserIDHeader))
 	if err != nil {
-		return httpapi.WriteError(c, fiber.StatusBadRequest, "missing or invalid "+DevUserIDHeader+" header")
+		return httpapi.WriteError(c, fiber.StatusBadRequest, "missing or invalid "+httpapi.DevUserIDHeader+" header")
 	}
 
 	var req CreateProfileRequest
