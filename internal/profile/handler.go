@@ -67,21 +67,6 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(prof)
 }
 
-// GetByUserID handles GET /api/v1/users/:userId/profile.
-func (h *Handler) GetByUserID(c fiber.Ctx) error {
-	userID, err := uuid.Parse(c.Params("userId"))
-	if err != nil {
-		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid user id")
-	}
-
-	prof, err := h.service.GetByUserID(c.Context(), userID)
-	if err != nil {
-		return handleServiceError(c, "get profile by user id", err)
-	}
-
-	return c.Status(fiber.StatusOK).JSON(prof)
-}
-
 // Create handles POST /api/v1/profiles.
 func (h *Handler) Create(c fiber.Ctx) error {
 	userID, err := uuid.Parse(c.Get(DevUserIDHeader))

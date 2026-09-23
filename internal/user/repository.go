@@ -78,6 +78,8 @@ func (r *Repository) GetByEmail(ctx context.Context, email string) (*models.User
 	return user, nil
 }
 
+// Never call repository.Update directly; use service.Update instead.
+// Calling the repository.Update directly can lead to security issues, such as updating passwords without proper validation.
 func (r *Repository) Update(ctx context.Context, user *models.User) (*models.User, error) {
 	updatedUser := &models.User{}
 	err := r.db.QueryRow(ctx, `

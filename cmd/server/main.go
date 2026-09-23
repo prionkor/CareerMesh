@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/prionkor/careermesh/internal/database"
 	"github.com/prionkor/careermesh/internal/profile"
+	"github.com/prionkor/careermesh/internal/user"
 )
 
 func main() {
@@ -38,10 +39,15 @@ func main() {
 	profileService := profile.NewService(profileRepository)
 	profileHandler := profile.NewHandler(profileService)
 
+	userRepository := user.NewRepository(db)
+	userService := user.NewService(userRepository)
+	userHandler := user.NewHandler(userService, profileService)
+
 	app := fiber.New()
 
 	v1 := app.Group("/api/v1")
 	profileHandler.RegisterRoutes(v1)
+	userHandler.RegisterRoutes(v1)
 
 	addr := os.Getenv("SERVER_ADDR")
 	if addr == "" {
