@@ -5,10 +5,13 @@ import (
 	"log"
 	"time"
 
+	"uuid"
+
 	"github.com/gofiber/fiber/v3"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/prionkor/careermesh/internal/authorization"
 	"github.com/prionkor/careermesh/internal/httpapi"
+	"github.com/prionkor/careermesh/internal/middleware"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -49,7 +52,7 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid certification id")
 	}
 
-	cert, err := h.service.GetByID(c.Context(), id)
+	cert, err := h.service.GetByID(c.Context(), middleware.UserID(c), middleware.IsAdmin(c), id)
 	if err != nil {
 		return handleServiceError(c, "get certification by id", err)
 	}
@@ -59,18 +62,13 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 
 // Create handles POST /api/v1/certifications.
 func (h *Handler) Create(c fiber.Ctx) error {
-	userID, err := uuid.Parse(c.Get(httpapi.DevUserIDHeader))
-	if err != nil {
-		return httpapi.WriteError(c, fiber.StatusBadRequest, "missing or invalid "+httpapi.DevUserIDHeader+" header")
-	}
-
 	var req CreateCertificationRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
 	cert := &models.Certification{
-		UserID:       userID,
+		UserID:       middleware.UserID(c),
 		Name:         req.Name,
 		Issuer:       req.Issuer,
 		IssueDate:    req.IssueDate,
@@ -109,7 +107,7 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		URL:          req.URL,
 	}
 
-	updated, err := h.service.Update(c.Context(), cert)
+	updated, err := h.service.Update(c.Context(), middleware.UserID(c), middleware.IsAdmin(c), cert)
 	if err != nil {
 		return handleServiceError(c, "update certification", err)
 	}
@@ -124,7 +122,7 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid certification id")
 	}
 
-	if err := h.service.Delete(c.Context(), id); err != nil {
+	if err := h.service.Delete(c.Context(), middleware.UserID(c), middleware.IsAdmin(c), id); err != nil {
 		return handleServiceError(c, "delete certification", err)
 	}
 
@@ -134,6 +132,9 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 // handleServiceError logs the underlying error and writes a safe, generic
 // JSON error response, mapping "not found" to 404.
 func handleServiceError(c fiber.Ctx, action string, err error) error {
+	if errors.Is(err, authorization.ErrForbidden) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return httpapi.WriteError(c, fiber.StatusNotFound, "certification not found")
 	}
