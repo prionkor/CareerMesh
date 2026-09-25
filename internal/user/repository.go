@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prionkor/careermesh/models"
@@ -114,4 +115,51 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+// defaultRoleName is granted to every newly created user.
+const defaultRoleName = "user"
+
+// AssignDefaultRole grants the standard 'user' role to a newly created user.
+func (r *Repository) AssignDefaultRole(ctx context.Context, userID uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `
+		INSERT INTO user_roles (user_id, role_id)
+		SELECT $1, id FROM roles WHERE name = $2
+	`, userID, defaultRoleName)
+	if err != nil {
+		return fmt.Errorf("assign default role: %w", err)
+	}
+
+	return nil
+}
+
+// GetPermissionsByUserID returns the flattened, deduplicated set of
+// permission keys granted to a user through its roles.
+func (r *Repository) GetPermissionsByUserID(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT DISTINCT p.key
+		FROM user_roles ur
+		JOIN role_permissions rp ON rp.role_id = ur.role_id
+		JOIN permissions p ON p.id = rp.permission_id
+		WHERE ur.user_id = $1
+		ORDER BY p.key
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get permissions by user id: %w", err)
+	}
+	defer rows.Close()
+
+	permissions := make([]string, 0)
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, fmt.Errorf("scan permission: %w", err)
+		}
+		permissions = append(permissions, key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("get permissions by user id: %w", err)
+	}
+
+	return permissions, nil
 }

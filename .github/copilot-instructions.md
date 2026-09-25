@@ -12,3 +12,8 @@ Do not introduce architectural complexity without a clear requirement.
 
 Career data is the source of truth. AI-generated content must not invent
 career information.
+
+# Qwen model instructions
+
+When using the Qwen model, do not use extended reasoning.
+Keep reasoning minimal and proceed directly with the requested task.

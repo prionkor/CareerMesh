@@ -4,10 +4,13 @@ import (
 	"errors"
 	"log"
 
+	"uuid"
+
 	"github.com/gofiber/fiber/v3"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/prionkor/careermesh/internal/authorization"
 	"github.com/prionkor/careermesh/internal/httpapi"
+	"github.com/prionkor/careermesh/internal/middleware"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -55,23 +58,28 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 		return handleServiceError(c, "get profile by id", err)
 	}
 
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		prof.UserID,
+		middleware.Permissions(c),
+		authorization.PermProfilesReadOwn,
+		authorization.PermProfilesReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
 	return c.Status(fiber.StatusOK).JSON(prof)
 }
 
 // Create handles POST /api/v1/profiles.
 func (h *Handler) Create(c fiber.Ctx) error {
-	userID, err := uuid.Parse(c.Get(httpapi.DevUserIDHeader))
-	if err != nil {
-		return httpapi.WriteError(c, fiber.StatusBadRequest, "missing or invalid "+httpapi.DevUserIDHeader+" header")
-	}
-
 	var req CreateProfileRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
 	prof := &models.Profile{
-		UserID:   userID,
+		UserID:   middleware.UserID(c),
 		Name:     req.Name,
 		Headline: req.Headline,
 		Location: req.Location,
@@ -101,16 +109,28 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	prof := &models.Profile{
-		ID:       id,
-		Name:     req.Name,
-		Headline: req.Headline,
-		Location: req.Location,
-		Phone:    req.Phone,
-		Website:  req.Website,
-		GitHub:   req.GitHub,
-		LinkedIn: req.LinkedIn,
+	prof, err := h.service.GetByID(c.Context(), id)
+	if err != nil {
+		return handleServiceError(c, "get profile for update", err)
 	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		prof.UserID,
+		middleware.Permissions(c),
+		authorization.PermProfilesUpdateOwn,
+		authorization.PermProfilesUpdateAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
+	prof.Name = req.Name
+	prof.Headline = req.Headline
+	prof.Location = req.Location
+	prof.Phone = req.Phone
+	prof.Website = req.Website
+	prof.GitHub = req.GitHub
+	prof.LinkedIn = req.LinkedIn
 
 	updated, err := h.service.Update(c.Context(), prof)
 	if err != nil {
@@ -125,6 +145,21 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid profile id")
+	}
+
+	prof, err := h.service.GetByID(c.Context(), id)
+	if err != nil {
+		return handleServiceError(c, "get profile for delete", err)
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		prof.UserID,
+		middleware.Permissions(c),
+		authorization.PermProfilesDeleteOwn,
+		authorization.PermProfilesDeleteAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
 
 	if err := h.service.Delete(c.Context(), id); err != nil {

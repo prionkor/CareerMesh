@@ -32,7 +32,13 @@ func main() {
 	defer db.Close()
 
 	log.Println("database connected")
-	app := app.New(db)
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET must be set")
+	}
+
+	app := app.New(db, []byte(jwtSecret))
 
 	addr := os.Getenv("SERVER_ADDR")
 	if addr == "" {

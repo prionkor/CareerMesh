@@ -5,10 +5,13 @@ import (
 	"log"
 	"time"
 
+	"uuid"
+
 	"github.com/gofiber/fiber/v3"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/prionkor/careermesh/internal/authorization"
 	"github.com/prionkor/careermesh/internal/httpapi"
+	"github.com/prionkor/careermesh/internal/middleware"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -54,23 +57,28 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 		return handleServiceError(c, "get project by id", err)
 	}
 
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		proj.UserID,
+		middleware.Permissions(c),
+		authorization.PermProjectsReadOwn,
+		authorization.PermProjectsReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
 	return c.Status(fiber.StatusOK).JSON(proj)
 }
 
 // Create handles POST /api/v1/projects.
 func (h *Handler) Create(c fiber.Ctx) error {
-	userID, err := uuid.Parse(c.Get(httpapi.DevUserIDHeader))
-	if err != nil {
-		return httpapi.WriteError(c, fiber.StatusBadRequest, "missing or invalid "+httpapi.DevUserIDHeader+" header")
-	}
-
 	var req CreateProjectRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
 	proj := &models.Project{
-		UserID:        userID,
+		UserID:        middleware.UserID(c),
 		Name:          req.Name,
 		Description:   req.Description,
 		URL:           req.URL,
@@ -99,8 +107,24 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
+	saved, err := h.service.GetByID(c.Context(), id)
+	if err != nil {
+		return handleServiceError(c, "get project for update", err)
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		saved.UserID,
+		middleware.Permissions(c),
+		authorization.PermProjectsUpdateOwn,
+		authorization.PermProjectsUpdateAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
 	proj := &models.Project{
 		ID:            id,
+		UserID:        saved.UserID,
 		Name:          req.Name,
 		Description:   req.Description,
 		URL:           req.URL,
@@ -124,6 +148,21 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid project id")
 	}
 
+	saved, err := h.service.GetByID(c.Context(), id)
+	if err != nil {
+		return handleServiceError(c, "get project for delete", err)
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		saved.UserID,
+		middleware.Permissions(c),
+		authorization.PermProjectsDeleteOwn,
+		authorization.PermProjectsDeleteAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
 	if err := h.service.Delete(c.Context(), id); err != nil {
 		return handleServiceError(c, "delete project", err)
 	}
@@ -134,6 +173,9 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 // handleServiceError logs the underlying error and writes a safe, generic
 // JSON error response, mapping "not found" to 404.
 func handleServiceError(c fiber.Ctx, action string, err error) error {
+	if errors.Is(err, authorization.ErrForbidden) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return httpapi.WriteError(c, fiber.StatusNotFound, "project not found")
 	}

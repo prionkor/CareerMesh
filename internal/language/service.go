@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -44,6 +45,7 @@ func (s *Service) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*models
 }
 
 func (s *Service) Update(ctx context.Context, language *models.Language) (*models.Language, error) {
+
 	updatedLanguage, err := s.repository.Update(ctx, language)
 	if err != nil {
 		return nil, fmt.Errorf("update language: %w", err)
@@ -53,6 +55,7 @@ func (s *Service) Update(ctx context.Context, language *models.Language) (*model
 }
 
 func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
+
 	if err := s.repository.Delete(ctx, id); err != nil {
 		return fmt.Errorf("delete language: %w", err)
 	}

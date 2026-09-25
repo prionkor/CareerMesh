@@ -1,4 +1,4 @@
--- migrations/00002_create_profiles.sql
+m-- migrations/00002_create_profiles.sql
 
 -- +goose Up
 

@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prionkor/careermesh/models"

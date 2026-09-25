@@ -5,10 +5,13 @@ import (
 	"log"
 	"time"
 
+	"uuid"
+
 	"github.com/gofiber/fiber/v3"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/prionkor/careermesh/internal/authorization"
 	"github.com/prionkor/careermesh/internal/httpapi"
+	"github.com/prionkor/careermesh/internal/middleware"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -54,23 +57,28 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 		return handleServiceError(c, "get education by id", err)
 	}
 
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		edu.UserID,
+		middleware.Permissions(c),
+		authorization.PermEducationReadOwn,
+		authorization.PermEducationReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
 	return c.Status(fiber.StatusOK).JSON(edu)
 }
 
 // Create handles POST /api/v1/education.
 func (h *Handler) Create(c fiber.Ctx) error {
-	userID, err := uuid.Parse(c.Get(httpapi.DevUserIDHeader))
-	if err != nil {
-		return httpapi.WriteError(c, fiber.StatusBadRequest, "missing or invalid "+httpapi.DevUserIDHeader+" header")
-	}
-
 	var req CreateEducationRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
 	edu := &models.Education{
-		UserID:      userID,
+		UserID:      middleware.UserID(c),
 		Institution: req.Institution,
 		Degree:      req.Degree,
 		Field:       req.Field,
@@ -99,8 +107,24 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
+	saved, err := h.service.GetByID(c.Context(), id)
+	if err != nil {
+		return handleServiceError(c, "get education for update", err)
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		saved.UserID,
+		middleware.Permissions(c),
+		authorization.PermEducationUpdateOwn,
+		authorization.PermEducationUpdateAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
 	edu := &models.Education{
 		ID:          id,
+		UserID:      saved.UserID,
 		Institution: req.Institution,
 		Degree:      req.Degree,
 		Field:       req.Field,
@@ -124,6 +148,21 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid education id")
 	}
 
+	saved, err := h.service.GetByID(c.Context(), id)
+	if err != nil {
+		return handleServiceError(c, "get education for delete", err)
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		saved.UserID,
+		middleware.Permissions(c),
+		authorization.PermEducationDeleteOwn,
+		authorization.PermEducationDeleteAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
 	if err := h.service.Delete(c.Context(), id); err != nil {
 		return handleServiceError(c, "delete education", err)
 	}
@@ -134,6 +173,9 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 // handleServiceError logs the underlying error and writes a safe, generic
 // JSON error response, mapping "not found" to 404.
 func handleServiceError(c fiber.Ctx, action string, err error) error {
+	if errors.Is(err, authorization.ErrForbidden) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return httpapi.WriteError(c, fiber.StatusNotFound, "education not found")
 	}

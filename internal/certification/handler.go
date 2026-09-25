@@ -52,9 +52,19 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid certification id")
 	}
 
-	cert, err := h.service.GetByID(c.Context(), middleware.UserID(c), middleware.IsAdmin(c), id)
+	cert, err := h.service.GetByID(c.Context(), id)
 	if err != nil {
 		return handleServiceError(c, "get certification by id", err)
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		cert.UserID,
+		middleware.Permissions(c),
+		authorization.PermCertificationsReadOwn,
+		authorization.PermCertificationsReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
 
 	return c.Status(fiber.StatusOK).JSON(cert)
@@ -97,8 +107,24 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
+	saved, err := h.service.GetByID(c.Context(), id)
+	if err != nil {
+		return handleServiceError(c, "get certification for update", err)
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		saved.UserID,
+		middleware.Permissions(c),
+		authorization.PermCertificationsUpdateOwn,
+		authorization.PermCertificationsUpdateAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
 	cert := &models.Certification{
 		ID:           id,
+		UserID:       saved.UserID,
 		Name:         req.Name,
 		Issuer:       req.Issuer,
 		IssueDate:    req.IssueDate,
@@ -107,7 +133,7 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		URL:          req.URL,
 	}
 
-	updated, err := h.service.Update(c.Context(), middleware.UserID(c), middleware.IsAdmin(c), cert)
+	updated, err := h.service.Update(c.Context(), cert)
 	if err != nil {
 		return handleServiceError(c, "update certification", err)
 	}
@@ -122,7 +148,22 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid certification id")
 	}
 
-	if err := h.service.Delete(c.Context(), middleware.UserID(c), middleware.IsAdmin(c), id); err != nil {
+	saved, err := h.service.GetByID(c.Context(), id)
+	if err != nil {
+		return handleServiceError(c, "get certification for delete", err)
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		saved.UserID,
+		middleware.Permissions(c),
+		authorization.PermCertificationsDeleteOwn,
+		authorization.PermCertificationsDeleteAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
+	if err := h.service.Delete(c.Context(), id); err != nil {
 		return handleServiceError(c, "delete certification", err)
 	}
 

@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -44,6 +45,7 @@ func (s *Service) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*models
 }
 
 func (s *Service) Update(ctx context.Context, education *models.Education) (*models.Education, error) {
+
 	updatedEducation, err := s.repository.Update(ctx, education)
 	if err != nil {
 		return nil, fmt.Errorf("update education: %w", err)

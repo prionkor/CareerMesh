@@ -4,10 +4,13 @@ import (
 	"errors"
 	"log"
 
+	"uuid"
+
 	"github.com/gofiber/fiber/v3"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/prionkor/careermesh/internal/authorization"
 	"github.com/prionkor/careermesh/internal/httpapi"
+	"github.com/prionkor/careermesh/internal/middleware"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -45,23 +48,28 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 		return handleServiceError(c, "get language by id", err)
 	}
 
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		lang.UserID,
+		middleware.Permissions(c),
+		authorization.PermLanguagesReadOwn,
+		authorization.PermLanguagesReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
 	return c.Status(fiber.StatusOK).JSON(lang)
 }
 
 // Create handles POST /api/v1/languages.
 func (h *Handler) Create(c fiber.Ctx) error {
-	userID, err := uuid.Parse(c.Get(httpapi.DevUserIDHeader))
-	if err != nil {
-		return httpapi.WriteError(c, fiber.StatusBadRequest, "missing or invalid "+httpapi.DevUserIDHeader+" header")
-	}
-
 	var req CreateLanguageRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
 	lang := &models.Language{
-		UserID:      userID,
+		UserID:      middleware.UserID(c),
 		Name:        req.Name,
 		Proficiency: req.Proficiency,
 	}
@@ -86,8 +94,24 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
+	saved, err := h.service.GetByID(c.Context(), id)
+	if err != nil {
+		return handleServiceError(c, "get language for update", err)
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		saved.UserID,
+		middleware.Permissions(c),
+		authorization.PermLanguagesUpdateOwn,
+		authorization.PermLanguagesUpdateAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
 	lang := &models.Language{
 		ID:          id,
+		UserID:      saved.UserID,
 		Name:        req.Name,
 		Proficiency: req.Proficiency,
 	}
@@ -107,6 +131,21 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid language id")
 	}
 
+	saved, err := h.service.GetByID(c.Context(), id)
+	if err != nil {
+		return handleServiceError(c, "get language for delete", err)
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		saved.UserID,
+		middleware.Permissions(c),
+		authorization.PermLanguagesDeleteOwn,
+		authorization.PermLanguagesDeleteAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
 	if err := h.service.Delete(c.Context(), id); err != nil {
 		return handleServiceError(c, "delete language", err)
 	}
@@ -117,6 +156,9 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 // handleServiceError logs the underlying error and writes a safe, generic
 // JSON error response, mapping "not found" to 404.
 func handleServiceError(c fiber.Ctx, action string, err error) error {
+	if errors.Is(err, authorization.ErrForbidden) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return httpapi.WriteError(c, fiber.StatusNotFound, "language not found")
 	}

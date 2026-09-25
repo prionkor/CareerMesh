@@ -3,17 +3,19 @@ package app
 import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prionkor/careermesh/internal/auth"
 	"github.com/prionkor/careermesh/internal/certification"
 	"github.com/prionkor/careermesh/internal/education"
 	"github.com/prionkor/careermesh/internal/experience"
 	"github.com/prionkor/careermesh/internal/language"
+	"github.com/prionkor/careermesh/internal/middleware"
 	"github.com/prionkor/careermesh/internal/profile"
 	"github.com/prionkor/careermesh/internal/project"
 	"github.com/prionkor/careermesh/internal/skill"
 	"github.com/prionkor/careermesh/internal/user"
 )
 
-func New(db *pgxpool.Pool) *fiber.App {
+func New(db *pgxpool.Pool, jwtSecret []byte) *fiber.App {
 
 	profileRepository := profile.NewRepository(db)
 	profileService := profile.NewService(profileRepository)
@@ -56,17 +58,26 @@ func New(db *pgxpool.Pool) *fiber.App {
 		languageService,
 	)
 
+	authService := auth.NewService(userService, jwtSecret)
+	authHandler := auth.NewHandler(authService)
+
 	app := fiber.New()
 
 	v1 := app.Group("/api/v1")
-	profileHandler.RegisterRoutes(v1)
-	userHandler.RegisterRoutes(v1)
-	experienceHandler.RegisterRoutes(v1)
-	projectHandler.RegisterRoutes(v1)
-	skillHandler.RegisterRoutes(v1)
-	educationHandler.RegisterRoutes(v1)
-	certificationHandler.RegisterRoutes(v1)
-	languageHandler.RegisterRoutes(v1)
+	public := v1
+	protected := v1.Group("", middleware.RequireAuth(jwtSecret))
+
+	authHandler.RegisterRoutes(public)
+
+	// protected routes
+	profileHandler.RegisterRoutes(protected)
+	userHandler.RegisterRoutes(protected)
+	experienceHandler.RegisterRoutes(protected)
+	projectHandler.RegisterRoutes(protected)
+	skillHandler.RegisterRoutes(protected)
+	educationHandler.RegisterRoutes(protected)
+	certificationHandler.RegisterRoutes(protected)
+	languageHandler.RegisterRoutes(protected)
 
 	return app
 }

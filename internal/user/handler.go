@@ -4,14 +4,17 @@ import (
 	"errors"
 	"log"
 
+	"uuid"
+
 	"github.com/gofiber/fiber/v3"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/prionkor/careermesh/internal/authorization"
 	"github.com/prionkor/careermesh/internal/certification"
 	"github.com/prionkor/careermesh/internal/education"
 	"github.com/prionkor/careermesh/internal/experience"
 	"github.com/prionkor/careermesh/internal/httpapi"
 	"github.com/prionkor/careermesh/internal/language"
+	"github.com/prionkor/careermesh/internal/middleware"
 	"github.com/prionkor/careermesh/internal/profile"
 	"github.com/prionkor/careermesh/internal/project"
 	"github.com/prionkor/careermesh/internal/skill"
@@ -63,7 +66,7 @@ type UpdateUserRequest struct {
 	Email string `json:"email"`
 }
 
-// GetByID handles GET /api/v1/users/:id.
+// GetByID handles GET /api/v1/users/.
 func (h *Handler) GetByID(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -75,7 +78,18 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 		return handleServiceError(c, "get user by id", err)
 	}
 
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		usr.ID,
+		middleware.Permissions(c),
+		authorization.PermUsersReadOwn,
+		authorization.PermUsersReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
 	return c.Status(fiber.StatusOK).JSON(usr)
+
 }
 
 // Create handles POST /api/v1/users.
@@ -91,9 +105,10 @@ func (h *Handler) Create(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(created)
+
 }
 
-// Update handles PUT /api/v1/users/:id. It updates account fields only and
+// Update handles PUT /api/v1/users/. It updates account fields only and
 // does not change the password.
 func (h *Handler) Update(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
@@ -111,14 +126,40 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		return handleServiceError(c, "update user", err)
 	}
 
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		updated.ID,
+		middleware.Permissions(c),
+		authorization.PermUsersUpdateOwn,
+		authorization.PermUsersUpdateAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
 	return c.Status(fiber.StatusOK).JSON(updated)
+
 }
 
-// Delete handles DELETE /api/v1/users/:id.
+// Delete handles DELETE /api/v1/users/.
 func (h *Handler) Delete(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid user id")
+	}
+
+	_, err = h.service.GetByID(c.Context(), id)
+	if err != nil {
+		return handleServiceError(c, "get user for delete", err)
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		id,
+		middleware.Permissions(c),
+		authorization.PermUsersDeleteOwn,
+		authorization.PermUsersDeleteAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
 
 	if err := h.service.Delete(c.Context(), id); err != nil {
@@ -126,13 +167,24 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+
 }
 
-// GetProfile handles GET /api/v1/users/:id/profile.
+// GetProfile handles GET /api/v1/users//profile.
 func (h *Handler) GetProfile(c fiber.Ctx) error {
 	userID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid user id")
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		userID,
+		middleware.Permissions(c),
+		authorization.PermProfilesReadOwn,
+		authorization.PermProfilesReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
 
 	prof, err := h.profileService.GetByUserID(c.Context(), userID)
@@ -141,13 +193,24 @@ func (h *Handler) GetProfile(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(prof)
+
 }
 
-// GetExperiences handles GET /api/v1/users/:id/experiences.
+// GetExperiences handles GET /api/v1/users//experiences.
 func (h *Handler) GetExperiences(c fiber.Ctx) error {
 	userID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid user id")
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		userID,
+		middleware.Permissions(c),
+		authorization.PermExperiencesReadOwn,
+		authorization.PermExperiencesReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
 
 	experiences, err := h.experienceService.ListByUserID(c.Context(), userID)
@@ -156,13 +219,24 @@ func (h *Handler) GetExperiences(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(experiences)
+
 }
 
-// GetProjects handles GET /api/v1/users/:id/projects.
+// GetProjects handles GET /api/v1/users//projects.
 func (h *Handler) GetProjects(c fiber.Ctx) error {
 	userID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid user id")
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		userID,
+		middleware.Permissions(c),
+		authorization.PermProjectsReadOwn,
+		authorization.PermProjectsReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
 
 	projects, err := h.projectService.ListByUserID(c.Context(), userID)
@@ -171,13 +245,24 @@ func (h *Handler) GetProjects(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(projects)
+
 }
 
-// GetSkills handles GET /api/v1/users/:id/skills.
+// GetSkills handles GET /api/v1/users//skills.
 func (h *Handler) GetSkills(c fiber.Ctx) error {
 	userID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid user id")
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		userID,
+		middleware.Permissions(c),
+		authorization.PermSkillsReadOwn,
+		authorization.PermSkillsReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
 
 	skills, err := h.skillService.ListByUserID(c.Context(), userID)
@@ -186,13 +271,24 @@ func (h *Handler) GetSkills(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(skills)
+
 }
 
-// GetEducation handles GET /api/v1/users/:id/education.
+// GetEducation handles GET /api/v1/users//education.
 func (h *Handler) GetEducation(c fiber.Ctx) error {
 	userID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid user id")
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		userID,
+		middleware.Permissions(c),
+		authorization.PermEducationReadOwn,
+		authorization.PermEducationReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
 
 	entries, err := h.educationService.ListByUserID(c.Context(), userID)
@@ -201,13 +297,24 @@ func (h *Handler) GetEducation(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(entries)
+
 }
 
-// GetCertifications handles GET /api/v1/users/:id/certifications.
+// GetCertifications handles GET /api/v1/users//certifications.
 func (h *Handler) GetCertifications(c fiber.Ctx) error {
 	userID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid user id")
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		userID,
+		middleware.Permissions(c),
+		authorization.PermCertificationsReadOwn,
+		authorization.PermCertificationsReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
 
 	certifications, err := h.certificationService.ListByUserID(c.Context(), userID)
@@ -216,13 +323,24 @@ func (h *Handler) GetCertifications(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(certifications)
+
 }
 
-// GetLanguages handles GET /api/v1/users/:id/languages.
+// GetLanguages handles GET /api/v1/users//languages.
 func (h *Handler) GetLanguages(c fiber.Ctx) error {
 	userID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid user id")
+	}
+
+	if !authorization.CanAccessResource(
+		middleware.UserID(c),
+		userID,
+		middleware.Permissions(c),
+		authorization.PermLanguagesReadOwn,
+		authorization.PermLanguagesReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
 
 	languages, err := h.languageService.ListByUserID(c.Context(), userID)
@@ -231,15 +349,20 @@ func (h *Handler) GetLanguages(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(languages)
+
 }
 
 // handleServiceError logs the underlying error and writes a safe, generic
-// JSON error response, mapping "not found" to 404.
+// JSON error response, mapping "not found" to 404 and ownership violations to 403.
 func handleServiceError(c fiber.Ctx, action string, err error) error {
+	if errors.Is(err, authorization.ErrForbidden) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return httpapi.WriteError(c, fiber.StatusNotFound, "not found")
 	}
 
 	log.Printf("%s: %v", action, err)
 	return httpapi.WriteError(c, fiber.StatusInternalServerError, "internal server error")
+
 }
