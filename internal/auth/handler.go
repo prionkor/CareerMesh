@@ -4,10 +4,14 @@ import (
 	"errors"
 	"log"
 
+	"uuid"
+
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
 	"github.com/prionkor/careermesh/internal/httpapi"
-	"uuid"
 )
+
+var validate = validator.New()
 
 type Handler struct {
 	service *Service
@@ -19,8 +23,8 @@ func NewHandler(service *Service) *Handler {
 
 // LoginRequest is the client-provided body for logging in.
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
 }
 
 // LoginUserResponse is the safe user projection returned on login.
@@ -45,6 +49,11 @@ func (h *Handler) Login(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
+	// Validate the request using validator/v10
+	if err := validate.Struct(req); err != nil {
+		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
 	result, err := h.service.Login(c.Context(), req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) {
@@ -64,4 +73,36 @@ func (h *Handler) Login(c fiber.Ctx) error {
 			Email: result.User.Email,
 		},
 	})
+}
+
+// RegisterRequest is the client-provided body for registration.
+type RegisterRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
+}
+
+// RegisterResponse is the response body for a successful registration.
+type RegisterResponse struct {
+	Success bool `json:"success"`
+}
+
+// Register handles POST /api/v1/auth/register.
+func (h *Handler) Register(c fiber.Ctx) error {
+	var req RegisterRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	// Validate the request using validator/v10
+	if err := validate.Struct(req); err != nil {
+		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	// Register the user
+	if _, err := h.service.Register(c.Context(), req.Email, req.Password); err != nil {
+		log.Printf("register: %v", err)
+		return httpapi.WriteError(c, fiber.StatusInternalServerError, "internal server error")
+	}
+
+	return c.Status(fiber.StatusOK).JSON(RegisterResponse{Success: true})
 }

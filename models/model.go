@@ -14,6 +14,15 @@ type User struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+type PendingUser struct {
+	ID           string    `db:"id"`
+	Email        string    `db:"email"`
+	PasswordHash string    `db:"password_hash"`
+	TokenHash    string    `db:"token_hash"`
+	ExpiresAt    time.Time `db:"expires_at"`
+	CreatedAt    time.Time `db:"created_at"`
+}
+
 type Profile struct {
 	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`

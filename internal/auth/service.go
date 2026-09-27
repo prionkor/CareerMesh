@@ -2,11 +2,16 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"time"
 
 	"uuid"
 
+	"github.com/prionkor/careermesh/internal/pending_user"
+	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -23,8 +28,9 @@ type UserLookup interface {
 }
 
 type Service struct {
-	users     UserLookup
-	jwtSecret []byte
+	users       UserLookup
+	jwtSecret   []byte
+	PendingUser pending_user.Service
 }
 
 func NewService(users UserLookup, jwtSecret []byte) *Service {
@@ -45,7 +51,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 		return nil, ErrInvalidCredentials
 	}
 
-	ok, err := VerifyPassword(usr.PasswordHash, password)
+	ok, err := utility.VerifyPassword(usr.PasswordHash, password)
 	if err != nil || !ok {
 		return nil, ErrInvalidCredentials
 	}
@@ -61,4 +67,42 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	}
 
 	return &LoginResult{AccessToken: token, User: usr}, nil
+}
+
+func (s *Service) Register(ctx context.Context, email, password string) (*models.PendingUser, error) {
+	// Hash the password using the existing password-hashing mechanism
+	passwordHash, err := utility.HashPassword(password)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+
+	// Generate a cryptographically secure verification token
+	verificationToken, err := generateVerificationToken()
+	if err != nil {
+		return nil, fmt.Errorf("generate verification token: %w", err)
+	}
+
+	// Hash the verification token for storage
+	verificationTokenHash, err := utility.HashPassword(verificationToken)
+	if err != nil {
+		return nil, fmt.Errorf("hash verification token: %w", err)
+	}
+
+	// Create the pending user record
+	expireAt := time.Now().Add(24 * time.Hour) // 24 hours from now
+	user, err := s.PendingUser.Create(ctx, email, passwordHash, verificationTokenHash, expireAt)
+	if err != nil {
+		return nil, fmt.Errorf("create pending user: %w", err)
+	}
+
+	return user, nil
+}
+
+// generateVerificationToken generates a cryptographically secure random token
+func generateVerificationToken() (string, error) {
+	token := make([]byte, 32)
+	if _, err := rand.Read(token); err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(token), nil
 }

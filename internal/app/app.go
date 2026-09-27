@@ -67,6 +67,7 @@ func New(db *pgxpool.Pool, jwtSecret []byte) *fiber.App {
 	public := v1
 	protected := v1.Group("", middleware.RequireAuth(jwtSecret))
 
+	// public routes
 	authHandler.RegisterRoutes(public)
 
 	// protected routes

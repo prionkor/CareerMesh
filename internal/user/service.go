@@ -6,6 +6,7 @@ import (
 
 	"uuid"
 
+	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -22,7 +23,7 @@ func NewService(repository *Repository) *Service {
 }
 
 func (s *Service) Create(ctx context.Context, email, password string) (*models.User, error) {
-	passwordHash, err := hashPassword(password)
+	passwordHash, err := utility.HashPassword(password)
 	if err != nil {
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
