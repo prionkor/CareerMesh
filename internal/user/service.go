@@ -28,6 +28,10 @@ func (s *Service) Create(ctx context.Context, email, password string) (*models.U
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
+	return s.CreateWithHashedPassword(ctx, email, passwordHash)
+}
+
+func (s *Service) CreateWithHashedPassword(ctx context.Context, email, passwordHash string) (*models.User, error) {
 	user := &models.User{Email: email, PasswordHash: passwordHash}
 
 	createdUser, err := s.repository.Create(ctx, user)
