@@ -2,8 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"time"
@@ -78,16 +76,13 @@ func (s *Service) Register(ctx context.Context, email, password string) (*models
 	}
 
 	// Generate a cryptographically secure verification token
-	verificationToken, err := generateVerificationToken()
+	verificationToken, err := utility.GenerateVerificationToken()
 	if err != nil {
 		return nil, fmt.Errorf("generate verification token: %w", err)
 	}
 
 	// Hash the verification token for storage
-	verificationTokenHash, err := utility.HashPassword(verificationToken)
-	if err != nil {
-		return nil, fmt.Errorf("hash verification token: %w", err)
-	}
+	verificationTokenHash := utility.HashToken(verificationToken)
 
 	// Create the pending user record
 	expireAt := time.Now().Add(24 * time.Hour) // 24 hours from now
@@ -112,11 +107,6 @@ func (s *Service) Verify(ctx context.Context, token string) error {
 		return fmt.Errorf("token has expired")
 	}
 
-	// Verify the token matches the stored hash
-	if ok, err := utility.VerifyPassword(pendingUser.TokenHash, token); err != nil || !ok {
-		return fmt.Errorf("invalid token")
-	}
-
 	// Create the actual user using the existing user service/repository conventions
 	_, err = s.users.GetByEmail(ctx, pendingUser.Email)
 	if err == nil {
@@ -138,12 +128,4 @@ func (s *Service) Verify(ctx context.Context, token string) error {
 	// todo: send notificaiton email to user
 
 	return nil
-}
-
-func generateVerificationToken() (string, error) {
-	token := make([]byte, 32)
-	if _, err := rand.Read(token); err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(token), nil
 }

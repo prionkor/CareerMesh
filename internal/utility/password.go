@@ -2,8 +2,10 @@ package utility
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -73,4 +75,17 @@ func VerifyPassword(hash, password string) (bool, error) {
 	computed := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, uint32(len(expected)))
 
 	return subtle.ConstantTimeCompare(expected, computed) == 1, nil
+}
+
+func GenerateVerificationToken() (string, error) {
+	token := make([]byte, 32)
+	if _, err := rand.Read(token); err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(token), nil
+}
+
+func HashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }

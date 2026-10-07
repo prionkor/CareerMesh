@@ -38,10 +38,7 @@ func (s *Service) FindByEmail(ctx context.Context, email string) (*models.Pendin
 // FindByToken returns a pending user by verification token
 func (s *Service) FindByToken(ctx context.Context, token string) (*models.PendingUser, error) {
 	// Hash the input token before matching
-	hashedToken, err := utility.HashPassword(token)
-	if err != nil {
-		return nil, fmt.Errorf("hash verification token: %w", err)
-	}
+	hashedToken := utility.HashToken(token)
 
 	user, err := s.repository.FindByToken(ctx, hashedToken)
 	if err != nil {
