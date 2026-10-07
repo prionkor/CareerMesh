@@ -1,4 +1,4 @@
--- migrations/00015_create_user_roles.sql
+-- migrations/00013_create_user_roles.sql
 
 -- +goose Up
 

@@ -1,4 +1,4 @@
--- migrations/000017_create_pending_users.sql
+-- migrations/00014_create_pending_users.sql
 
 -- +goose Up
 CREATE TABLE pending_users (
