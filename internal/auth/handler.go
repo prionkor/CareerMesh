@@ -106,3 +106,34 @@ func (h *Handler) Register(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(RegisterResponse{Success: true})
 }
+
+// VerifyRequest is the client-provided query parameter for verification.
+type VerifyRequest struct {
+	Token string `query:"token" validate:"required"`
+}
+
+// VerifyResponse is the response body for a successful verification.
+type VerifyResponse struct {
+	Success bool `json:"success"`
+}
+
+// Verify handles GET /api/v1/auth/register/verify.
+func (h *Handler) Verify(c fiber.Ctx) error {
+	var req VerifyRequest
+	if err := c.Bind().Query(&req); err != nil {
+		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request query")
+	}
+
+	// Validate the request using validator/v10
+	if err := validate.Struct(req); err != nil {
+		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request query")
+	}
+
+	// Verify the token
+	if err := h.service.Verify(c.Context(), req.Token); err != nil {
+		// Don't expose the nature of the error
+		return httpapi.WriteError(c, fiber.StatusUnauthorized, "invalid or expired token")
+	}
+
+	return c.Status(fiber.StatusOK).JSON(VerifyResponse{Success: true})
+}

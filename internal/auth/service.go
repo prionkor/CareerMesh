@@ -25,6 +25,7 @@ var ErrInvalidCredentials = errors.New("invalid email or password")
 type UserLookup interface {
 	GetByEmail(ctx context.Context, email string) (*models.User, error)
 	GetPermissions(ctx context.Context, id uuid.UUID) ([]string, error)
+	CreateWithHashedPassword(ctx context.Context, email, passwordHash string) (*models.User, error)
 }
 
 type Service struct {
@@ -98,7 +99,47 @@ func (s *Service) Register(ctx context.Context, email, password string) (*models
 	return user, nil
 }
 
-// generateVerificationToken generates a cryptographically secure random token
+// Verify verifies a user's email using a verification token
+func (s *Service) Verify(ctx context.Context, token string) error {
+	// Find the pending user using the token
+	pendingUser, err := s.PendingUser.FindByToken(ctx, token)
+	if err != nil {
+		return fmt.Errorf("find pending user: %w", err)
+	}
+
+	// Check if the token has expired
+	if time.Now().After(pendingUser.ExpiresAt) {
+		return fmt.Errorf("token has expired")
+	}
+
+	// Verify the token matches the stored hash
+	if ok, err := utility.VerifyPassword(pendingUser.TokenHash, token); err != nil || !ok {
+		return fmt.Errorf("invalid token")
+	}
+
+	// Create the actual user using the existing user service/repository conventions
+	_, err = s.users.GetByEmail(ctx, pendingUser.Email)
+	if err == nil {
+		// User already exists
+		return fmt.Errorf("user already exists")
+	}
+
+	// Create the user using the existing user service/repository conventions
+	_, err = s.users.CreateWithHashedPassword(ctx, pendingUser.Email, pendingUser.PasswordHash)
+	if err != nil {
+		return fmt.Errorf("create user: %w", err)
+	}
+
+	// Delete the pending user record
+	if err := s.PendingUser.Delete(ctx, pendingUser.ID); err != nil {
+		return fmt.Errorf("delete pending user: %w", err)
+	}
+
+	// todo: send notificaiton email to user
+
+	return nil
+}
+
 func generateVerificationToken() (string, error) {
 	token := make([]byte, 32)
 	if _, err := rand.Read(token); err != nil {

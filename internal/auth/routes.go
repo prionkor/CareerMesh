@@ -7,4 +7,5 @@ func (h *Handler) RegisterRoutes(v1 fiber.Router) {
 
 	auth.Post("/login", h.Login)
 	auth.Post("/register", h.Register)
+	auth.Get("/register/verify", h.Verify)
 }
