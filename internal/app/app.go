@@ -9,6 +9,7 @@ import (
 	"github.com/prionkor/careermesh/internal/experience"
 	"github.com/prionkor/careermesh/internal/language"
 	"github.com/prionkor/careermesh/internal/middleware"
+	"github.com/prionkor/careermesh/internal/pending_user"
 	"github.com/prionkor/careermesh/internal/profile"
 	"github.com/prionkor/careermesh/internal/project"
 	"github.com/prionkor/careermesh/internal/skill"
@@ -58,7 +59,10 @@ func New(db *pgxpool.Pool, jwtSecret []byte) *fiber.App {
 		languageService,
 	)
 
-	authService := auth.NewService(userService, jwtSecret)
+	pendingUserRepository := pending_user.NewRepository(db)
+	pendingUserService := pending_user.NewService(pendingUserRepository)
+
+	authService := auth.NewService(userService, jwtSecret, pendingUserService)
 	authHandler := auth.NewHandler(authService)
 
 	app := fiber.New()

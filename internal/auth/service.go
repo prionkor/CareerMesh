@@ -29,11 +29,11 @@ type UserLookup interface {
 type Service struct {
 	users       UserLookup
 	jwtSecret   []byte
-	PendingUser pending_user.Service
+	PendingUser *pending_user.Service
 }
 
-func NewService(users UserLookup, jwtSecret []byte) *Service {
-	return &Service{users: users, jwtSecret: jwtSecret}
+func NewService(users UserLookup, jwtSecret []byte, pendingUser *pending_user.Service) *Service {
+	return &Service{users: users, jwtSecret: jwtSecret, PendingUser: pendingUser}
 }
 
 // LoginResult carries the outcome of a successful login.
