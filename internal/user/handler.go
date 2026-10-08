@@ -121,14 +121,9 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	updated, err := h.service.Update(c.Context(), id, UpdateUserInput{Email: req.Email})
-	if err != nil {
-		return handleServiceError(c, "update user", err)
-	}
-
 	if !authorization.CanAccessResource(
 		middleware.UserID(c),
-		updated.ID,
+		id,
 		middleware.Permissions(c),
 		authorization.PermUsersUpdateOwn,
 		authorization.PermUsersUpdateAll,
@@ -136,8 +131,12 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
 
-	return c.Status(fiber.StatusOK).JSON(updated)
+	updated, err := h.service.Update(c.Context(), id, UpdateUserInput{Email: req.Email})
+	if err != nil {
+		return handleServiceError(c, "update user", err)
+	}
 
+	return c.Status(fiber.StatusOK).JSON(updated)
 }
 
 // Delete handles DELETE /api/v1/users/.
