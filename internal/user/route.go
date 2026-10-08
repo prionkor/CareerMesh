@@ -6,10 +6,6 @@ import (
 	"github.com/prionkor/careermesh/internal/middleware"
 )
 
-// RegisterRoutes registers user routes. Registration (POST) is intentionally
-// public since there is no authenticated identity before an account exists;
-// every other user route requires the caller to already be authenticated,
-// so it is registered on protected.
 func (h *Handler) RegisterRoutes(protected fiber.Router) {
 
 	user := protected.Group("/users")
