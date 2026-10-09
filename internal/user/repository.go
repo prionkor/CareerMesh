@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prionkor/careermesh/internal/authorization"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -133,33 +134,32 @@ func (r *Repository) AssignDefaultRole(ctx context.Context, userID uuid.UUID) er
 	return nil
 }
 
-// GetPermissionsByUserID returns the flattened, deduplicated set of
-// permission keys granted to a user through its roles.
+// GetPermissionsByUserID returns the flattened, deduplicated permissions
+// granted to a user through its roles.
 func (r *Repository) GetPermissionsByUserID(ctx context.Context, userID uuid.UUID) ([]string, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT DISTINCT p.key
+		SELECT DISTINCT roles.name
 		FROM user_roles ur
-		JOIN role_permissions rp ON rp.role_id = ur.role_id
-		JOIN permissions p ON p.id = rp.permission_id
+		JOIN roles ON roles.id = ur.role_id
 		WHERE ur.user_id = $1
-		ORDER BY p.key
+		ORDER BY roles.name
 	`, userID)
 	if err != nil {
-		return nil, fmt.Errorf("get permissions by user id: %w", err)
+		return nil, fmt.Errorf("get roles by user id: %w", err)
 	}
 	defer rows.Close()
 
-	permissions := make([]string, 0)
+	roles := make([]authorization.Role, 0)
 	for rows.Next() {
-		var key string
-		if err := rows.Scan(&key); err != nil {
-			return nil, fmt.Errorf("scan permission: %w", err)
+		var roleName string
+		if err := rows.Scan(&roleName); err != nil {
+			return nil, fmt.Errorf("scan role: %w", err)
 		}
-		permissions = append(permissions, key)
+		roles = append(roles, authorization.Role(roleName))
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("get permissions by user id: %w", err)
+		return nil, fmt.Errorf("get roles by user id: %w", err)
 	}
 
-	return permissions, nil
+	return authorization.PermissionsForRoles(roles), nil
 }

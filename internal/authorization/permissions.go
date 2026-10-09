@@ -4,6 +4,7 @@ package authorization
 
 import (
 	"errors"
+	"sort"
 	"strings"
 
 	"uuid"
@@ -12,6 +13,14 @@ import (
 // ErrForbidden indicates the authenticated user does not own the resource
 // and does not have a permission scoped to "all".
 var ErrForbidden = errors.New("forbidden: resource does not belong to the authenticated user")
+
+type Role string
+
+const (
+	RoleUser       Role = "user"
+	RoleAdmin      Role = "admin"
+	RoleSuperadmin Role = "superadmin"
+)
 
 // Permission keys use the form "<resource>:<action>:<scope>", where scope is
 // "own" (the authenticated user's own resources) or "all" (any resource).
@@ -104,12 +113,75 @@ const (
 	PermLanguagesAnyOwn    = "languages:*:own"
 	PermLanguagesAnyAll    = "languages:*:all"
 
+	PermRoleUpdateAll = "role:update:all"
+
+	PermUserRolesCreateAll = "user_roles:create:all"
+	PermUserRolesUpdateAll = "user_roles:update:all"
+
 	// PermAll* grant permissions across every resource via the "*" wildcard.
 	PermAllReadOwn = "*:read:own"
 	PermAllReadAll = "*:read:all"
 	PermAllAnyOwn  = "*:*:own"
 	PermAllAnyAll  = "*:*:all"
 )
+
+var userPermissions = []string{
+	PermUsersReadOwn, PermUsersCreateOwn, PermUsersUpdateOwn, PermUsersDeleteOwn,
+	PermProfilesReadOwn, PermProfilesCreateOwn, PermProfilesUpdateOwn, PermProfilesDeleteOwn,
+	PermExperiencesReadOwn, PermExperiencesCreateOwn, PermExperiencesUpdateOwn, PermExperiencesDeleteOwn,
+	PermProjectsReadOwn, PermProjectsCreateOwn, PermProjectsUpdateOwn, PermProjectsDeleteOwn,
+	PermSkillsReadOwn, PermSkillsCreateOwn, PermSkillsUpdateOwn, PermSkillsDeleteOwn,
+	PermEducationReadOwn, PermEducationCreateOwn, PermEducationUpdateOwn, PermEducationDeleteOwn,
+	PermCertificationsReadOwn, PermCertificationsCreateOwn, PermCertificationsUpdateOwn, PermCertificationsDeleteOwn,
+	PermLanguagesReadOwn, PermLanguagesCreateOwn, PermLanguagesUpdateOwn, PermLanguagesDeleteOwn,
+}
+
+var adminPermissions = []string{
+	PermUsersReadAll,
+	// PermUsersCreateAll,
+	PermUsersUpdateAll,
+	// PermUsersDeleteAll,
+
+	PermProfilesReadAll, PermProfilesCreateAll, PermProfilesUpdateAll, PermProfilesDeleteAll,
+	PermExperiencesReadAll, PermExperiencesCreateAll, PermExperiencesUpdateAll, PermExperiencesDeleteAll,
+	PermProjectsReadAll, PermProjectsCreateAll, PermProjectsUpdateAll, PermProjectsDeleteAll,
+	PermSkillsReadAll, PermSkillsCreateAll, PermSkillsUpdateAll, PermSkillsDeleteAll,
+	PermEducationReadAll, PermEducationCreateAll, PermEducationUpdateAll, PermEducationDeleteAll,
+	PermCertificationsReadAll, PermCertificationsCreateAll, PermCertificationsUpdateAll, PermCertificationsDeleteAll,
+	PermLanguagesReadAll, PermLanguagesCreateAll, PermLanguagesUpdateAll, PermLanguagesDeleteAll,
+}
+
+// PermissionsForRoles returns the sorted, deduplicated permissions granted by roles.
+// Unknown roles are ignored.
+func PermissionsForRoles(roles []Role) []string {
+	permissions := make([]string, 0, len(userPermissions)+len(adminPermissions)+2)
+	for _, role := range roles {
+		switch role {
+		case RoleUser:
+			permissions = append(permissions, userPermissions...)
+		case RoleAdmin:
+			permissions = append(permissions, userPermissions...)
+			permissions = append(permissions, adminPermissions...)
+		case RoleSuperadmin:
+			permissions = append(permissions, userPermissions...)
+			permissions = append(permissions, adminPermissions...)
+			permissions = append(permissions, PermRoleUpdateAll, PermUserRolesCreateAll, PermUserRolesUpdateAll)
+		}
+	}
+
+	unique := make(map[string]struct{}, len(permissions))
+	result := make([]string, 0, len(permissions))
+	for _, permission := range permissions {
+		if _, exists := unique[permission]; exists {
+			continue
+		}
+		unique[permission] = struct{}{}
+		result = append(result, permission)
+	}
+	sort.Strings(result)
+
+	return result
+}
 
 // HasPermission reports whether permissions contains a permission that
 // satisfies required. Permissions have the form "<resource>:<action>:<scope>".

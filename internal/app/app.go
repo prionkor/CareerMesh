@@ -14,6 +14,7 @@ import (
 	"github.com/prionkor/careermesh/internal/project"
 	"github.com/prionkor/careermesh/internal/skill"
 	"github.com/prionkor/careermesh/internal/user"
+	"github.com/prionkor/careermesh/internal/user_role"
 )
 
 func New(db *pgxpool.Pool, jwtSecret []byte) *fiber.App {
@@ -59,6 +60,10 @@ func New(db *pgxpool.Pool, jwtSecret []byte) *fiber.App {
 		languageService,
 	)
 
+	userRoleRepository := user_role.NewRepository(db)
+	userRoleService := user_role.NewService(userRoleRepository)
+	userRoleHandler := user_role.NewHandler(userRoleService)
+
 	pendingUserRepository := pending_user.NewRepository(db)
 	pendingUserService := pending_user.NewService(pendingUserRepository)
 
@@ -77,6 +82,7 @@ func New(db *pgxpool.Pool, jwtSecret []byte) *fiber.App {
 	// protected routes
 	profileHandler.RegisterRoutes(protected)
 	userHandler.RegisterRoutes(protected)
+	userRoleHandler.RegisterRoutes(protected)
 	experienceHandler.RegisterRoutes(protected)
 	projectHandler.RegisterRoutes(protected)
 	skillHandler.RegisterRoutes(protected)

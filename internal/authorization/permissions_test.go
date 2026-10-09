@@ -1,6 +1,93 @@
 package authorization
 
-import "testing"
+import (
+	"reflect"
+	"sort"
+	"strings"
+	"testing"
+)
+
+func TestPermissionsForRoles(t *testing.T) {
+	resources := []string{"users", "profiles", "experiences", "projects", "skills", "education", "certifications", "languages"}
+	actions := []string{"read", "create", "update", "delete"}
+
+	expectedForScope := func(scopes ...string) []string {
+		permissions := make([]string, 0, len(resources)*len(actions)*len(scopes)+2)
+		for _, resource := range resources {
+			for _, action := range actions {
+				for _, scope := range scopes {
+					permissions = append(permissions, resource+":"+action+":"+scope)
+				}
+			}
+		}
+		sort.Strings(permissions)
+		return permissions
+	}
+
+	userExpected := expectedForScope("own")
+	adminExpected := expectedForScope("own", "all")
+	adminExpected = removePermission(adminExpected, PermUsersCreateAll, PermUsersDeleteAll)
+	superadminExpected := append(append(expectedForScope("own", "all"), PermRoleUpdateAll), PermUserRolesCreateAll, PermUserRolesUpdateAll)
+	superadminExpected = removePermission(superadminExpected, PermUsersCreateAll, PermUsersDeleteAll)
+	sort.Strings(superadminExpected)
+
+	tests := []struct {
+		name  string
+		roles []Role
+		want  []string
+	}{
+		{name: "user", roles: []Role{RoleUser}, want: userExpected},
+		{name: "admin", roles: []Role{RoleAdmin}, want: adminExpected},
+		{name: "superadmin", roles: []Role{RoleSuperadmin}, want: superadminExpected},
+		{name: "unknown", roles: []Role{"unknown"}, want: []string{}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := PermissionsForRoles(test.roles)
+			if !reflect.DeepEqual(got, test.want) {
+				t.Fatalf("PermissionsForRoles(%v) = %v, want %v", test.roles, got, test.want)
+			}
+		})
+	}
+
+	userPermissions := PermissionsForRoles([]Role{RoleUser})
+	for _, permission := range userPermissions {
+		if strings.HasSuffix(permission, ":all") || strings.HasPrefix(permission, "user_roles:") {
+			t.Errorf("regular user received elevated permission %q", permission)
+		}
+	}
+	if HasPermission(PermissionsForRoles([]Role{RoleAdmin}), PermRoleUpdateAll) {
+		t.Error("admin received role update permission")
+	}
+	if !HasPermission(PermissionsForRoles([]Role{RoleSuperadmin}), PermRoleUpdateAll) {
+		t.Error("superadmin did not receive role update permission")
+	}
+
+	first := PermissionsForRoles([]Role{RoleSuperadmin, RoleUser, RoleSuperadmin})
+	second := PermissionsForRoles([]Role{RoleUser, RoleSuperadmin})
+	if !reflect.DeepEqual(first, second) {
+		t.Fatalf("role order or duplicates changed permissions: %v != %v", first, second)
+	}
+}
+
+func removePermission(permissions []string, excluded ...string) []string {
+	filtered := make([]string, 0, len(permissions))
+	for _, permission := range permissions {
+		remove := false
+		for _, excludedPermission := range excluded {
+			if permission == excludedPermission {
+				remove = true
+				break
+			}
+		}
+		if !remove {
+			filtered = append(filtered, permission)
+		}
+	}
+	sort.Strings(filtered)
+	return filtered
+}
 
 func TestHasPermission_ExactMatch(t *testing.T) {
 	granted := []string{PermProfilesUpdateOwn}
