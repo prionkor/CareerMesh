@@ -1,4 +1,4 @@
-package app
+package app_test
 
 import (
 	"bytes"
@@ -15,55 +15,40 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/joho/godotenv"
-	"github.com/prionkor/careermesh/internal/database"
+	"github.com/prionkor/careermesh/internal/app"
+	"github.com/prionkor/careermesh/tests/integration/testdb"
 )
 
 // testJWTSecret is the fixed signing secret used across integration tests.
 const testJWTSecret = "test-secret-do-not-use-in-production"
 
-// testApp builds a fully wired app against the real, migrated PostgreSQL
-// instance used for local development (see docker-compose.yaml). Tests are
-// skipped if the database is not reachable.
-func testApp(t *testing.T) *fiber.App {
-	t.Helper()
+// sharedPool is the single pool for the whole suite, created in TestMain
+// against TEST_DATABASE_URL with migrations already applied.
+var sharedPool *pgxpool.Pool
 
-	_ = godotenv.Load(mustFindEnvFile(t))
-
-	db, err := database.NewPool(context.Background(), database.Config{
-		Host:     envOr("DB_HOST", "localhost"),
-		Port:     envOr("DB_PORT", "5432"),
-		User:     envOr("DB_USER", "careermesh"),
-		Password: envOr("DB_PASS", "careermesh"),
-		Name:     envOr("DB_NAME", "careermesh"),
-		SSLMode:  envOr("DB_SSLMODE", "disable"),
-	})
+func TestMain(m *testing.M) {
+	pool, err := testdb.Setup(context.Background())
 	if err != nil {
-		t.Skipf("database not available, skipping integration test: %v", err)
+		fmt.Fprintf(os.Stderr, "integration test setup failed: %v\n", err)
+		os.Exit(1)
 	}
-	t.Cleanup(func() { db.Close() })
+	sharedPool = pool
 
-	return New(db, []byte(testJWTSecret))
+	code := m.Run()
+	pool.Close()
+	os.Exit(code)
 }
 
-// testDB opens a direct pool for test setup/assertions that bypass the HTTP API.
+// testApp builds a fully wired app on the shared test database pool.
+func testApp(t *testing.T) *fiber.App {
+	t.Helper()
+	return app.New(sharedPool, []byte(testJWTSecret))
+}
+
+// testDB returns the shared pool for setup/assertions that bypass the HTTP API.
 func testDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-
-	pool, err := database.NewPool(context.Background(), database.Config{
-		Host:     envOr("DB_HOST", "localhost"),
-		Port:     envOr("DB_PORT", "5432"),
-		User:     envOr("DB_USER", "careermesh"),
-		Password: envOr("DB_PASS", "careermesh"),
-		Name:     envOr("DB_NAME", "careermesh"),
-		SSLMode:  envOr("DB_SSLMODE", "disable"),
-	})
-	if err != nil {
-		t.Skipf("database not available, skipping integration test: %v", err)
-	}
-	t.Cleanup(func() { pool.Close() })
-
-	return pool
+	return sharedPool
 }
 
 // grantAdminRole grants the 'admin' role directly via the database, bypassing the HTTP API.
@@ -77,25 +62,6 @@ func grantAdminRole(t *testing.T, pool *pgxpool.Pool, userID string) {
 	if err != nil {
 		t.Fatalf("grant admin role: %v", err)
 	}
-}
-
-// mustFindEnvFile lets godotenv.Load() find the repo-root .env regardless of
-// the package's working directory during `go test ./...`.
-func mustFindEnvFile(t *testing.T) string {
-	t.Helper()
-	for _, candidate := range []string{".env", "../../.env"} {
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
-		}
-	}
-	return ".env"
-}
-
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }
 
 func doRequest(t *testing.T, app *fiber.App, method, path, token string, body any) *http.Response {

@@ -98,6 +98,31 @@ The initial stack is intentionally small:
 
 The technology stack may evolve as the project develops.
 
+## Tests
+
+Unit tests are database-independent and stay alongside production packages, such as `internal/authorization`. Integration tests in `tests/integration/` exercise the fully wired application and require PostgreSQL. The integration harness only reads `APP_ENV` and `TEST_DATABASE_URL`; it does not load `.env` or fall back to `DB_NAME` or the development database.
+
+Start the existing Compose PostgreSQL service and create a dedicated test database once:
+
+```sh
+docker compose up -d postgres
+docker compose exec postgres createdb -U careermesh careermesh_test
+```
+
+The `_test` suffix and rejection of the database named `careermesh` are guardrails, not proof that a database is disposable. Confirm the URL points to a database you intend to use for tests.
+
+Run the unit and integration suites separately:
+
+```sh
+go test ./internal/authorization/...
+
+export APP_ENV=test
+export TEST_DATABASE_URL='postgres://careermesh:careermesh@localhost:5432/careermesh_test?sslmode=disable'
+go test ./tests/integration/...
+```
+
+The integration harness validates both environment settings and the URL's effective database name before connecting, then applies Goose migrations from `migrations/` once for the app integration suite using its shared database pool.
+
 ## Project status
 
 CareerMesh is currently in the early development stage.
@@ -137,11 +162,13 @@ The roadmap will evolve as the project develops.
 
 - [x] Project structure
 - [x] PostgreSQL setup
-- [ ] Career profile
-- [ ] Experience
-- [ ] Projects
-- [ ] Skills
-- [ ] Education
+- [x] Profile
+- [x] Certification
+- [x] Experience
+- [x] Language
+- [x] Projects
+- [x] Skills
+- [x] Education
 - [ ] Resume/document storage
 
 ### Phase 2 - Job Management
