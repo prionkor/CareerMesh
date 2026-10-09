@@ -2,12 +2,15 @@ package pending_user
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
+
+var ErrEmailAlreadyExists = errors.New("email already exists")
 
 type Service struct {
 	repository *Repository

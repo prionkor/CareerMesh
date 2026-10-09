@@ -28,14 +28,11 @@ func (r *Repository) Create(ctx context.Context, email, passwordHash, tokenHash 
 	}
 
 	if exists {
-		return nil, fmt.Errorf("email already exists")
+		return nil, ErrEmailAlreadyExists
 	}
 
 	// Generate UUIDv7
 	id := uuid.New()
-
-	// Set verification expiration time (24 hours from now)
-	verificationExpiresAt := time.Now().Add(24 * time.Hour)
 
 	// Insert new pending user and return the created record
 	user := &models.PendingUser{}
@@ -43,10 +40,9 @@ func (r *Repository) Create(ctx context.Context, email, passwordHash, tokenHash 
 		INSERT INTO pending_users (
 			id, 
 			email, 
-			password_hash, 
-			token_hash, 
-			expires_at, 
-			created_at
+			password_hash,
+			token_hash,
+			expires_at
 		) VALUES (
 			$1, 
 			$2, 
@@ -55,7 +51,7 @@ func (r *Repository) Create(ctx context.Context, email, passwordHash, tokenHash 
 			$5
 		)
 		RETURNING id, email, password_hash, token_hash, expires_at, created_at
-	`, id, email, passwordHash, tokenHash, verificationExpiresAt).Scan(
+	`, id, email, passwordHash, tokenHash, expiresAt).Scan(
 		&user.ID,
 		&user.Email,
 		&user.PasswordHash,

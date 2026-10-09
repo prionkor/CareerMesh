@@ -9,6 +9,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
 	"github.com/prionkor/careermesh/internal/httpapi"
+	"github.com/prionkor/careermesh/internal/pending_user"
 )
 
 var validate = validator.New()
@@ -100,6 +101,9 @@ func (h *Handler) Register(c fiber.Ctx) error {
 
 	// Register the user
 	if _, err := h.service.Register(c.Context(), req.Email, req.Password); err != nil {
+		if errors.Is(err, pending_user.ErrEmailAlreadyExists) {
+			return httpapi.WriteError(c, fiber.StatusConflict, "email already registered")
+		}
 		log.Printf("register: %v", err)
 		return httpapi.WriteError(c, fiber.StatusInternalServerError, "internal server error")
 	}

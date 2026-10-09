@@ -8,6 +8,7 @@ import (
 
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/prionkor/careermesh/internal/pending_user"
 	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
@@ -69,6 +70,12 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 }
 
 func (s *Service) Register(ctx context.Context, email, password string) (*models.PendingUser, error) {
+	if _, err := s.users.GetByEmail(ctx, email); err == nil {
+		return nil, pending_user.ErrEmailAlreadyExists
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("check existing user: %w", err)
+	}
+
 	// Hash the password using the existing password-hashing mechanism
 	passwordHash, err := utility.HashPassword(password)
 	if err != nil {
