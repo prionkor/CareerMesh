@@ -2,13 +2,16 @@ package job_description
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -21,6 +24,12 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 }
 
 const jobDescriptionColumns = `id, user_id, title, company, company_website, source_url, location, employment_type, original_text, created_at, updated_at`
+
+const (
+	restrictViolation               = "23001"
+	foreignKeyViolation             = "23503"
+	jobApplicationsJobDescriptionFK = "job_applications_job_description_id_fkey"
+)
 
 func (r *Repository) Create(ctx context.Context, jobDescription *models.JobDescription) (*models.JobDescription, error) {
 	created, err := scanJobDescription(r.db.QueryRow(ctx, `
@@ -44,6 +53,9 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*models.JobDesc
 		WHERE id = $1
 	`, id))
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("get job description by id: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("get job description by id: %w", err)
 	}
 
@@ -93,6 +105,9 @@ func (r *Repository) Update(ctx context.Context, jobDescription *models.JobDescr
 		jobDescription.SourceURL, jobDescription.Location, employmentTypeValue(jobDescription.EmploymentType), jobDescription.OriginalText,
 	))
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("update job description: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("update job description: %w", err)
 	}
 
@@ -102,10 +117,13 @@ func (r *Repository) Update(ctx context.Context, jobDescription *models.JobDescr
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	result, err := r.db.Exec(ctx, `DELETE FROM job_descriptions WHERE id = $1`, id)
 	if err != nil {
+		if hasJobApplications(err) {
+			return fmt.Errorf("delete job description: %w", utility.ErrConflict)
+		}
 		return fmt.Errorf("delete job description: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("delete job description: %w", pgx.ErrNoRows)
+		return fmt.Errorf("delete job description: %w", utility.ErrNotFound)
 	}
 
 	return nil
@@ -134,4 +152,12 @@ func scanJobDescription(row pgx.Row) (*models.JobDescription, error) {
 	}
 
 	return jobDescription, nil
+}
+
+func hasJobApplications(err error) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.ConstraintName != jobApplicationsJobDescriptionFK {
+		return false
+	}
+	return pgErr.Code == restrictViolation || pgErr.Code == foreignKeyViolation
 }

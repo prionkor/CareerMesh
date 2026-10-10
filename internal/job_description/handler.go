@@ -8,8 +8,6 @@ import (
 	"uuid"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/prionkor/careermesh/internal/authorization"
 	"github.com/prionkor/careermesh/internal/httpapi"
 	"github.com/prionkor/careermesh/internal/middleware"
@@ -20,12 +18,6 @@ import (
 const (
 	defaultPageSize = 20
 	maximumPageSize = 100
-
-	// SQLSTATEs for restrict_violation and foreign_key_violation.
-	restrictViolation   = "23001"
-	foreignKeyViolation = "23503"
-
-	jobApplicationsJobDescriptionFK = "job_applications_job_description_id_fkey"
 )
 
 type Handler struct {
@@ -167,7 +159,7 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 	}
 
 	if err := h.service.Delete(c.Context(), id); err != nil {
-		if hasJobApplications(err) {
+		if errors.Is(err, utility.ErrConflict) {
 			return httpapi.WriteError(c, fiber.StatusConflict, "job description has job applications")
 		}
 		return handleServiceError(c, "delete job description", err)
@@ -211,19 +203,10 @@ func handleServiceError(c fiber.Ctx, action string, err error) error {
 	if errors.Is(err, authorization.ErrForbidden) {
 		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, utility.ErrNotFound) {
 		return httpapi.WriteError(c, fiber.StatusNotFound, "job description not found")
 	}
 
 	log.Printf("%s: %v", action, err)
 	return httpapi.WriteError(c, fiber.StatusInternalServerError, "internal server error")
-}
-
-// hasJobApplications reports whether err is the foreign-key restriction from job_applications.
-func hasJobApplications(err error) bool {
-	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) || pgErr.ConstraintName != jobApplicationsJobDescriptionFK {
-		return false
-	}
-	return pgErr.Code == restrictViolation || pgErr.Code == foreignKeyViolation
 }

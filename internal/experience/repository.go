@@ -2,12 +2,14 @@ package experience
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -49,6 +51,9 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*models.Experie
 		&experience.Description, &experience.CreatedAt, &experience.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("get experience by id: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("get experience by id: %w", err)
 	}
 
@@ -99,6 +104,9 @@ func (r *Repository) Update(ctx context.Context, experience *models.Experience) 
 		&updated.Description, &updated.CreatedAt, &updated.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("update experience: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("update experience: %w", err)
 	}
 
@@ -111,7 +119,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("delete experience: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("delete experience: %w", pgx.ErrNoRows)
+		return fmt.Errorf("delete experience: %w", utility.ErrNotFound)
 	}
 
 	return nil

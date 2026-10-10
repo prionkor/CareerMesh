@@ -2,12 +2,14 @@ package profile
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -49,6 +51,9 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*models.Profile
 		&profile.CreatedAt, &profile.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("get profile by id: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("get profile by id: %w", err)
 	}
 
@@ -67,6 +72,9 @@ func (r *Repository) GetByUserID(ctx context.Context, userID uuid.UUID) (*models
 		&profile.CreatedAt, &profile.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("get profile by user id: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("get profile by user id: %w", err)
 	}
 
@@ -86,6 +94,9 @@ func (r *Repository) Update(ctx context.Context, profile *models.Profile) (*mode
 		&updated.CreatedAt, &updated.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("update profile: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("update profile: %w", err)
 	}
 
@@ -98,7 +109,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("delete profile: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("delete profile: %w", pgx.ErrNoRows)
+		return fmt.Errorf("delete profile: %w", utility.ErrNotFound)
 	}
 
 	return nil

@@ -2,14 +2,17 @@ package job_application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -23,6 +26,11 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 
 const jobApplicationColumns = `id, user_id, job_description_id, status, applied_at, notes, created_at, updated_at`
 
+const (
+	foreignKeyViolation = "23503"
+	jobDescriptionFK    = "job_applications_job_description_id_fkey"
+)
+
 func (r *Repository) Create(ctx context.Context, application *models.JobApplication) (*models.JobApplication, error) {
 	created, err := scanJobApplication(r.db.QueryRow(ctx, `
 		INSERT INTO job_applications (user_id, job_description_id, status, applied_at, notes)
@@ -32,6 +40,9 @@ func (r *Repository) Create(ctx context.Context, application *models.JobApplicat
 		appliedAtValue(application.AppliedAt), application.Notes,
 	))
 	if err != nil {
+		if isMissingJobDescription(err) {
+			return nil, fmt.Errorf("create job application: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("create job application: %w", err)
 	}
 
@@ -45,6 +56,9 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*models.JobAppl
 		WHERE id = $1
 	`, id))
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("get job application by id: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("get job application by id: %w", err)
 	}
 
@@ -90,6 +104,9 @@ func (r *Repository) Update(ctx context.Context, application *models.JobApplicat
 		application.ID, application.Status, appliedAtValue(application.AppliedAt), application.Notes,
 	))
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("update job application: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("update job application: %w", err)
 	}
 
@@ -102,7 +119,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("delete job application: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("delete job application: %w", pgx.ErrNoRows)
+		return fmt.Errorf("delete job application: %w", utility.ErrNotFound)
 	}
 
 	return nil
@@ -129,4 +146,10 @@ func scanJobApplication(row pgx.Row) (*models.JobApplication, error) {
 	}
 
 	return application, nil
+}
+
+func isMissingJobDescription(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) &&
+		pgErr.Code == foreignKeyViolation && pgErr.ConstraintName == jobDescriptionFK
 }

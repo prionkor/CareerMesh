@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"uuid"
@@ -9,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prionkor/careermesh/internal/authorization"
+	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -54,6 +56,9 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*models.User, e
 		&user.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("get user by id: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("get user by id: %w", err)
 	}
 
@@ -74,6 +79,9 @@ func (r *Repository) GetByEmail(ctx context.Context, email string) (*models.User
 		&user.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("get user by email: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("get user by email: %w", err)
 	}
 
@@ -97,6 +105,9 @@ func (r *Repository) Update(ctx context.Context, user *models.User) (*models.Use
 		&updatedUser.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("update user: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("update user: %w", err)
 	}
 
@@ -112,7 +123,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("delete user: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("delete user: %w", pgx.ErrNoRows)
+		return fmt.Errorf("delete user: %w", utility.ErrNotFound)
 	}
 
 	return nil

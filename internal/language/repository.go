@@ -2,12 +2,14 @@ package language
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -45,6 +47,9 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*models.Languag
 		&language.ID, &language.UserID, &language.Name, &language.Proficiency, &language.CreatedAt, &language.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("get language by id: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("get language by id: %w", err)
 	}
 
@@ -91,6 +96,9 @@ func (r *Repository) Update(ctx context.Context, language *models.Language) (*mo
 		&updated.ID, &updated.UserID, &updated.Name, &updated.Proficiency, &updated.CreatedAt, &updated.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("update language: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("update language: %w", err)
 	}
 
@@ -103,7 +111,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("delete language: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("delete language: %w", pgx.ErrNoRows)
+		return fmt.Errorf("delete language: %w", utility.ErrNotFound)
 	}
 
 	return nil

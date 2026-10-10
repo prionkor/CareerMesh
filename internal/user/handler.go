@@ -7,7 +7,6 @@ import (
 	"uuid"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5"
 	"github.com/prionkor/careermesh/internal/authorization"
 	"github.com/prionkor/careermesh/internal/certification"
 	"github.com/prionkor/careermesh/internal/education"
@@ -18,6 +17,7 @@ import (
 	"github.com/prionkor/careermesh/internal/profile"
 	"github.com/prionkor/careermesh/internal/project"
 	"github.com/prionkor/careermesh/internal/skill"
+	"github.com/prionkor/careermesh/internal/utility"
 )
 
 type Handler struct {
@@ -357,7 +357,7 @@ func handleServiceError(c fiber.Ctx, action string, err error) error {
 	if errors.Is(err, authorization.ErrForbidden) {
 		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, utility.ErrNotFound) {
 		return httpapi.WriteError(c, fiber.StatusNotFound, "not found")
 	}
 

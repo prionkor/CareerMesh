@@ -2,12 +2,14 @@ package education
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -47,6 +49,9 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*models.Educati
 		&education.StartDate, &education.EndDate, &education.Description, &education.CreatedAt, &education.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("get education by id: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("get education by id: %w", err)
 	}
 
@@ -95,6 +100,9 @@ func (r *Repository) Update(ctx context.Context, education *models.Education) (*
 		&updated.StartDate, &updated.EndDate, &updated.Description, &updated.CreatedAt, &updated.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("update education: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("update education: %w", err)
 	}
 
@@ -107,7 +115,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("delete education: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("delete education: %w", pgx.ErrNoRows)
+		return fmt.Errorf("delete education: %w", utility.ErrNotFound)
 	}
 
 	return nil

@@ -8,8 +8,6 @@ import (
 	"uuid"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/prionkor/careermesh/internal/authorization"
 	"github.com/prionkor/careermesh/internal/httpapi"
 	"github.com/prionkor/careermesh/internal/job_description"
@@ -21,10 +19,6 @@ import (
 const (
 	defaultPageSize = 20
 	maximumPageSize = 100
-
-	// SQLSTATE foreign_key_violation and the job_description_id constraint name.
-	foreignKeyViolation = "23503"
-	jobDescriptionFK    = "job_applications_job_description_id_fkey"
 )
 
 type Handler struct {
@@ -68,7 +62,7 @@ func (h *Handler) Create(c fiber.Ctx) error {
 	userID := middleware.UserID(c)
 	jobDescription, err := h.jobDescriptionService.GetByID(c.Context(), req.JobDescriptionID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, utility.ErrNotFound) {
 			return httpapi.WriteError(c, fiber.StatusNotFound, "job description not found")
 		}
 		return handleServiceError(c, "get job description for application", err)
@@ -86,7 +80,7 @@ func (h *Handler) Create(c fiber.Ctx) error {
 		Status: status, AppliedAt: req.AppliedAt, Notes: req.Notes,
 	})
 	if err != nil {
-		if isMissingJobDescription(err) {
+		if errors.Is(err, utility.ErrNotFound) {
 			return httpapi.WriteError(c, fiber.StatusNotFound, "job description not found")
 		}
 		return handleServiceError(c, "create job application", err)
@@ -232,17 +226,10 @@ func handleServiceError(c fiber.Ctx, action string, err error) error {
 	if errors.Is(err, authorization.ErrForbidden) {
 		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, utility.ErrNotFound) {
 		return httpapi.WriteError(c, fiber.StatusNotFound, "job application not found")
 	}
 
 	log.Printf("%s: %v", action, err)
 	return httpapi.WriteError(c, fiber.StatusInternalServerError, "internal server error")
-}
-
-// isMissingJobDescription reports a job_description_id foreign-key violation, e.g. the job description was deleted after the ownership check.
-func isMissingJobDescription(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) &&
-		pgErr.Code == foreignKeyViolation && pgErr.ConstraintName == jobDescriptionFK
 }

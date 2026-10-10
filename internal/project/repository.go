@@ -2,12 +2,14 @@ package project
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -47,6 +49,9 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*models.Project
 		&project.RepositoryURL, &project.StartDate, &project.EndDate, &project.CreatedAt, &project.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("get project by id: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("get project by id: %w", err)
 	}
 
@@ -95,6 +100,9 @@ func (r *Repository) Update(ctx context.Context, project *models.Project) (*mode
 		&updated.RepositoryURL, &updated.StartDate, &updated.EndDate, &updated.CreatedAt, &updated.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("update project: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("update project: %w", err)
 	}
 
@@ -107,7 +115,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("delete project: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("delete project: %w", pgx.ErrNoRows)
+		return fmt.Errorf("delete project: %w", utility.ErrNotFound)
 	}
 
 	return nil

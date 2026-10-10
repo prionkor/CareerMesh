@@ -7,15 +7,8 @@ import (
 	"uuid"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/prionkor/careermesh/internal/httpapi"
-)
-
-const (
-	foreignKeyViolation = "23503"
-	userFK              = "user_roles_user_id_fkey"
-	roleFK              = "user_roles_role_id_fkey"
+	"github.com/prionkor/careermesh/internal/utility"
 )
 
 type Handler struct {
@@ -47,7 +40,7 @@ func (h *Handler) Update(c fiber.Ctx) error {
 	}
 
 	if err := h.service.ReplaceAssignment(c.Context(), userID, roleID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || isMissingReference(err) {
+		if errors.Is(err, utility.ErrNotFound) {
 			return httpapi.WriteError(c, fiber.StatusNotFound, "user or role not found")
 		}
 		log.Printf("update user role: %v", err)
@@ -55,13 +48,4 @@ func (h *Handler) Update(c fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
-}
-
-// isMissingReference reports a foreign-key violation on the user or role reference.
-func isMissingReference(err error) bool {
-	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) || pgErr.Code != foreignKeyViolation {
-		return false
-	}
-	return pgErr.ConstraintName == userFK || pgErr.ConstraintName == roleFK
 }

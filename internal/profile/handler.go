@@ -7,10 +7,10 @@ import (
 	"uuid"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5"
 	"github.com/prionkor/careermesh/internal/authorization"
 	"github.com/prionkor/careermesh/internal/httpapi"
 	"github.com/prionkor/careermesh/internal/middleware"
+	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -172,7 +172,7 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 // handleServiceError logs the underlying error and writes a safe, generic
 // JSON error response, mapping "not found" to 404.
 func handleServiceError(c fiber.Ctx, action string, err error) error {
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, utility.ErrNotFound) {
 		return httpapi.WriteError(c, fiber.StatusNotFound, "profile not found")
 	}
 
