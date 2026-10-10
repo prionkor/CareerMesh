@@ -51,17 +51,20 @@ func testDB(t *testing.T) *pgxpool.Pool {
 	return sharedPool
 }
 
-// grantAdminRole grants the 'admin' role directly via the database, bypassing the HTTP API.
+// grantAdminRole switches the user's single role assignment to 'admin', bypassing the HTTP API.
 func grantAdminRole(t *testing.T, pool *pgxpool.Pool, userID string) {
 	t.Helper()
+	setAuthTestRole(t, pool, userID, "admin")
+}
 
-	_, err := pool.Exec(context.Background(), `
-		INSERT INTO user_roles (user_id, role_id)
-		SELECT $1, id FROM roles WHERE name = 'admin'
-	`, userID)
-	if err != nil {
-		t.Fatalf("grant admin role: %v", err)
-	}
+// deleteTestUserOnCleanup removes the user at test end; dependent rows go via ON DELETE CASCADE.
+func deleteTestUserOnCleanup(t *testing.T, pool *pgxpool.Pool, userID string) {
+	t.Helper()
+	t.Cleanup(func() {
+		if _, err := pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, userID); err != nil {
+			t.Errorf("cleanup test user %s: %v", userID, err)
+		}
+	})
 }
 
 func doRequest(t *testing.T, app *fiber.App, method, path, token string, body any) *http.Response {
@@ -116,41 +119,13 @@ func containsPasswordHash(body string) bool {
 	return strings.Contains(body, "password_hash") || strings.Contains(body, "argon2id")
 }
 
-// registerAndLogin creates a brand-new user through the public registration
-// endpoint and logs in, returning the user id, access token and raw password.
+// registerAndLogin creates a verified user through /auth/register and email
+// verification, then logs in. The user is deleted when the test ends.
 func registerAndLogin(t *testing.T, app *fiber.App) (userID, token, email, password string) {
 	t.Helper()
 
-	email = fmt.Sprintf("test-%d-%d@example.com", time.Now().UnixNano(), os.Getpid())
-	password = "correct horse battery staple"
-
-	resp := doRequest(t, app, http.MethodPost, "/api/v1/users", "", map[string]string{
-		"email":    email,
-		"password": password,
-	})
-	if resp.StatusCode != http.StatusCreated {
-		t.Fatalf("register: expected 201, got %d", resp.StatusCode)
-	}
-
-	var created struct {
-		ID string `json:"id"`
-	}
-	decodeJSON(t, resp, &created)
-
-	loginResp := doRequest(t, app, http.MethodPost, "/api/v1/auth/login", "", map[string]string{
-		"email":    email,
-		"password": password,
-	})
-	if loginResp.StatusCode != http.StatusOK {
-		t.Fatalf("login: expected 200, got %d", loginResp.StatusCode)
-	}
-
-	var loginBody struct {
-		AccessToken string `json:"access_token"`
-	}
-	decodeJSON(t, loginResp, &loginBody)
-
-	return created.ID, loginBody.AccessToken, email, password
+	identity := createVerifiedAuthIdentity(t, app)
+	return identity.userID, loginAuthIdentity(t, app, identity), identity.email, identity.password
 }
 
 // login exchanges an email/password for a fresh access token, reflecting

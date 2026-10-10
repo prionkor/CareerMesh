@@ -124,11 +124,13 @@ func TestUserRoles_PutValidatesIDs(t *testing.T) {
 	}
 }
 
+// grantUserRole sets the user's single role assignment, creating it if absent.
 func grantUserRole(t *testing.T, pool *pgxpool.Pool, userID, roleName string) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
 		INSERT INTO user_roles (user_id, role_id)
 		SELECT $1, id FROM roles WHERE name = $2
+		ON CONFLICT (user_id) DO UPDATE SET role_id = EXCLUDED.role_id
 	`, userID, roleName)
 	if err != nil {
 		t.Fatalf("grant %s role: %v", roleName, err)
@@ -156,6 +158,7 @@ func createRoleTestUser(t *testing.T, pool *pgxpool.Pool) string {
 	`, email, "test-password-hash").Scan(&userID); err != nil {
 		t.Fatalf("create test user: %v", err)
 	}
+	deleteTestUserOnCleanup(t, pool, userID)
 	grantUserRole(t, pool, userID, "user")
 	return userID
 }
