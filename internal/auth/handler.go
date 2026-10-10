@@ -6,13 +6,11 @@ import (
 
 	"uuid"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
 	"github.com/prionkor/careermesh/internal/httpapi"
 	"github.com/prionkor/careermesh/internal/pending_user"
+	"github.com/prionkor/careermesh/internal/utility"
 )
-
-var validate = validator.New()
 
 type Handler struct {
 	service *Service
@@ -51,7 +49,7 @@ func (h *Handler) Login(c fiber.Ctx) error {
 	}
 
 	// Validate the request using validator/v10
-	if err := validate.Struct(req); err != nil {
+	if err := utility.ValidateStruct(req); err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
@@ -95,7 +93,7 @@ func (h *Handler) Register(c fiber.Ctx) error {
 	}
 
 	// Validate the request using validator/v10
-	if err := validate.Struct(req); err != nil {
+	if err := utility.ValidateStruct(req); err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
@@ -129,7 +127,7 @@ func (h *Handler) Verify(c fiber.Ctx) error {
 	}
 
 	// Validate the request using validator/v10
-	if err := validate.Struct(req); err != nil {
+	if err := utility.ValidateStruct(req); err != nil {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request query")
 	}
 

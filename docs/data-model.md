@@ -20,6 +20,14 @@ An experience belongs to one user.
 
 Experience bullets contain individual pieces of career evidence.
 
+## Job Description
+
+Represents an external job posting saved by a user. The original submitted
+description text is retained as provided and is not replaced by later
+derived data.
+
+A job description belongs to exactly one user.
+
 ## Project
 
 Represents a project associated with a user.
@@ -50,6 +58,7 @@ User
 ├── Profile
 ├── Experiences
 │ └── Experience Bullets
+├── Job Descriptions
 ├── Projects
 ├── Skills
 ├── Education

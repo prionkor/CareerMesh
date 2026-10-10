@@ -49,6 +49,17 @@ const (
 	EmploymentTypeVolunteer  EmploymentType = "volunteer"
 )
 
+func (employmentType EmploymentType) IsValid() bool {
+	switch employmentType {
+	case EmploymentTypeFullTime, EmploymentTypePartTime, EmploymentTypeContract,
+		EmploymentTypeFreelance, EmploymentTypeInternship, EmploymentTypeTemporary,
+		EmploymentTypeVolunteer:
+		return true
+	default:
+		return false
+	}
+}
+
 type Experience struct {
 	ID             uuid.UUID      `json:"id"`
 	UserID         uuid.UUID      `json:"user_id"`
@@ -62,6 +73,20 @@ type Experience struct {
 	Description    string         `json:"description"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
+}
+
+type JobDescription struct {
+	ID             uuid.UUID       `json:"id"`
+	UserID         uuid.UUID       `json:"user_id"`
+	Title          string          `json:"title"`
+	Company        string          `json:"company"`
+	CompanyWebsite string          `json:"company_website"`
+	SourceURL      string          `json:"source_url"`
+	Location       string          `json:"location"`
+	EmploymentType *EmploymentType `json:"employment_type"`
+	OriginalText   string          `json:"original_text"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
 }
 
 type ExperienceBullet struct {
