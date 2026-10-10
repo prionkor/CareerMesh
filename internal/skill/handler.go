@@ -7,10 +7,10 @@ import (
 	"uuid"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5"
 	"github.com/prionkor/careermesh/internal/authorization"
 	"github.com/prionkor/careermesh/internal/httpapi"
 	"github.com/prionkor/careermesh/internal/middleware"
+	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -159,7 +159,7 @@ func handleServiceError(c fiber.Ctx, action string, err error) error {
 	if errors.Is(err, authorization.ErrForbidden) {
 		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, utility.ErrNotFound) {
 		return httpapi.WriteError(c, fiber.StatusNotFound, "skill not found")
 	}
 

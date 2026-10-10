@@ -2,12 +2,14 @@ package skill
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prionkor/careermesh/internal/utility"
 	"github.com/prionkor/careermesh/models"
 )
 
@@ -45,6 +47,9 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*models.Skill, 
 		&skill.ID, &skill.UserID, &skill.Name, &skill.Category, &skill.CreatedAt, &skill.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("get skill by id: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("get skill by id: %w", err)
 	}
 
@@ -91,6 +96,9 @@ func (r *Repository) Update(ctx context.Context, skill *models.Skill) (*models.S
 		&updated.ID, &updated.UserID, &updated.Name, &updated.Category, &updated.CreatedAt, &updated.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("update skill: %w", utility.ErrNotFound)
+		}
 		return nil, fmt.Errorf("update skill: %w", err)
 	}
 
@@ -103,7 +111,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("delete skill: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("delete skill: %w", pgx.ErrNoRows)
+		return fmt.Errorf("delete skill: %w", utility.ErrNotFound)
 	}
 
 	return nil
