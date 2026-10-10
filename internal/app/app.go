@@ -7,6 +7,7 @@ import (
 	"github.com/prionkor/careermesh/internal/certification"
 	"github.com/prionkor/careermesh/internal/education"
 	"github.com/prionkor/careermesh/internal/experience"
+	"github.com/prionkor/careermesh/internal/job_application"
 	"github.com/prionkor/careermesh/internal/job_description"
 	"github.com/prionkor/careermesh/internal/language"
 	"github.com/prionkor/careermesh/internal/middleware"
@@ -31,6 +32,10 @@ func New(db *pgxpool.Pool, jwtSecret []byte) *fiber.App {
 	jobDescriptionRepository := job_description.NewRepository(db)
 	jobDescriptionService := job_description.NewService(jobDescriptionRepository)
 	jobDescriptionHandler := job_description.NewHandler(jobDescriptionService)
+
+	jobApplicationRepository := job_application.NewRepository(db)
+	jobApplicationService := job_application.NewService(jobApplicationRepository)
+	jobApplicationHandler := job_application.NewHandler(jobApplicationService, jobDescriptionService)
 
 	projectRepository := project.NewRepository(db)
 	projectService := project.NewService(projectRepository)
@@ -90,6 +95,7 @@ func New(db *pgxpool.Pool, jwtSecret []byte) *fiber.App {
 	userRoleHandler.RegisterRoutes(protected)
 	experienceHandler.RegisterRoutes(protected)
 	jobDescriptionHandler.RegisterRoutes(protected)
+	jobApplicationHandler.RegisterRoutes(protected)
 	projectHandler.RegisterRoutes(protected)
 	skillHandler.RegisterRoutes(protected)
 	educationHandler.RegisterRoutes(protected)

@@ -69,6 +69,17 @@ const (
 	PermJobDescriptionsAnyOwn    = "job_descriptions:*:own"
 	PermJobDescriptionsAnyAll    = "job_descriptions:*:all"
 
+	PermJobApplicationsReadOwn   = "job_applications:read:own"
+	PermJobApplicationsReadAll   = "job_applications:read:all"
+	PermJobApplicationsCreateOwn = "job_applications:create:own"
+	PermJobApplicationsCreateAll = "job_applications:create:all"
+	PermJobApplicationsUpdateOwn = "job_applications:update:own"
+	PermJobApplicationsUpdateAll = "job_applications:update:all"
+	PermJobApplicationsDeleteOwn = "job_applications:delete:own"
+	PermJobApplicationsDeleteAll = "job_applications:delete:all"
+	PermJobApplicationsAnyOwn    = "job_applications:*:own"
+	PermJobApplicationsAnyAll    = "job_applications:*:all"
+
 	PermProjectsReadOwn   = "projects:read:own"
 	PermProjectsReadAll   = "projects:read:all"
 	PermProjectsCreateOwn = "projects:create:own"
@@ -141,6 +152,7 @@ var userPermissions = []string{
 	PermProfilesReadOwn, PermProfilesCreateOwn, PermProfilesUpdateOwn, PermProfilesDeleteOwn,
 	PermExperiencesReadOwn, PermExperiencesCreateOwn, PermExperiencesUpdateOwn, PermExperiencesDeleteOwn,
 	PermJobDescriptionsReadOwn, PermJobDescriptionsCreateOwn, PermJobDescriptionsUpdateOwn, PermJobDescriptionsDeleteOwn,
+	PermJobApplicationsReadOwn, PermJobApplicationsCreateOwn, PermJobApplicationsUpdateOwn, PermJobApplicationsDeleteOwn,
 	PermProjectsReadOwn, PermProjectsCreateOwn, PermProjectsUpdateOwn, PermProjectsDeleteOwn,
 	PermSkillsReadOwn, PermSkillsCreateOwn, PermSkillsUpdateOwn, PermSkillsDeleteOwn,
 	PermEducationReadOwn, PermEducationCreateOwn, PermEducationUpdateOwn, PermEducationDeleteOwn,
@@ -157,6 +169,7 @@ var adminPermissions = []string{
 	PermProfilesReadAll, PermProfilesCreateAll, PermProfilesUpdateAll, PermProfilesDeleteAll,
 	PermExperiencesReadAll, PermExperiencesCreateAll, PermExperiencesUpdateAll, PermExperiencesDeleteAll,
 	PermJobDescriptionsReadAll, PermJobDescriptionsCreateAll, PermJobDescriptionsUpdateAll, PermJobDescriptionsDeleteAll,
+	PermJobApplicationsReadAll, PermJobApplicationsCreateAll, PermJobApplicationsUpdateAll, PermJobApplicationsDeleteAll,
 	PermProjectsReadAll, PermProjectsCreateAll, PermProjectsUpdateAll, PermProjectsDeleteAll,
 	PermSkillsReadAll, PermSkillsCreateAll, PermSkillsUpdateAll, PermSkillsDeleteAll,
 	PermEducationReadAll, PermEducationCreateAll, PermEducationUpdateAll, PermEducationDeleteAll,

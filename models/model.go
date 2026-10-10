@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"uuid"
@@ -87,6 +88,63 @@ type JobDescription struct {
 	OriginalText   string          `json:"original_text"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+// Date is a calendar date serialized as YYYY-MM-DD.
+type Date struct {
+	time.Time
+}
+
+func (d Date) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.Format(time.DateOnly))
+}
+
+func (d *Date) UnmarshalJSON(data []byte) error {
+	var value string
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	parsed, err := time.Parse(time.DateOnly, value)
+	if err != nil {
+		return err
+	}
+	d.Time = parsed
+	return nil
+}
+
+type JobApplicationStatus string
+
+const (
+	JobApplicationStatusDraft        JobApplicationStatus = "draft"
+	JobApplicationStatusApplied      JobApplicationStatus = "applied"
+	JobApplicationStatusScreening    JobApplicationStatus = "screening"
+	JobApplicationStatusInterviewing JobApplicationStatus = "interviewing"
+	JobApplicationStatusOffer        JobApplicationStatus = "offer"
+	JobApplicationStatusAccepted     JobApplicationStatus = "accepted"
+	JobApplicationStatusRejected     JobApplicationStatus = "rejected"
+	JobApplicationStatusWithdrawn    JobApplicationStatus = "withdrawn"
+)
+
+func (status JobApplicationStatus) IsValid() bool {
+	switch status {
+	case JobApplicationStatusDraft, JobApplicationStatusApplied, JobApplicationStatusScreening,
+		JobApplicationStatusInterviewing, JobApplicationStatusOffer, JobApplicationStatusAccepted,
+		JobApplicationStatusRejected, JobApplicationStatusWithdrawn:
+		return true
+	default:
+		return false
+	}
+}
+
+type JobApplication struct {
+	ID               uuid.UUID            `json:"id"`
+	UserID           uuid.UUID            `json:"user_id"`
+	JobDescriptionID uuid.UUID            `json:"job_description_id"`
+	Status           JobApplicationStatus `json:"status"`
+	AppliedAt        *Date                `json:"applied_at"`
+	Notes            string               `json:"notes"`
+	CreatedAt        time.Time            `json:"created_at"`
+	UpdatedAt        time.Time            `json:"updated_at"`
 }
 
 type ExperienceBullet struct {

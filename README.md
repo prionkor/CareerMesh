@@ -173,7 +173,7 @@ The roadmap will evolve as the project develops.
 
 ### Phase 2 - Job Management
 
-- [ ] Job description storage
+- [x] Job description storage
 - [ ] Job parsing
 - [ ] Job requirements
 - [ ] Career/job matching
@@ -188,7 +188,7 @@ The roadmap will evolve as the project develops.
 
 ### Phase 4 - Applications
 
-- [ ] Application tracking
+- [x] Application tracking
 - [ ] Resume version history
 - [ ] Cover letter history
 - [ ] Application analytics

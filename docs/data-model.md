@@ -28,6 +28,19 @@ derived data.
 
 A job description belongs to exactly one user.
 
+## Job Application
+
+Represents a user's application to a saved job description. It records the
+application status, an optional applied date, and notes. A job description can
+have many applications, and an application references exactly one job
+description.
+
+A job application belongs to exactly one user, who must also own the referenced
+job description. A job description that has applications cannot be deleted.
+
+`applied_at` is serialized as `YYYY-MM-DD` in JSON through `models.Date`.
+Other resources' date fields keep their existing `time.Time` (RFC3339) format.
+
 ## Project
 
 Represents a project associated with a user.
@@ -59,6 +72,7 @@ User
 ├── Experiences
 │ └── Experience Bullets
 ├── Job Descriptions
+│ └── Job Applications
 ├── Projects
 ├── Skills
 ├── Education

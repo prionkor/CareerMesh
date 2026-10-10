@@ -8,7 +8,7 @@ import (
 )
 
 func TestPermissionsForRoles(t *testing.T) {
-	resources := []string{"users", "profiles", "experiences", "projects", "skills", "education", "certifications", "languages", "job_descriptions"}
+	resources := []string{"users", "profiles", "experiences", "projects", "skills", "education", "certifications", "languages", "job_descriptions", "job_applications"}
 	actions := []string{"read", "create", "update", "delete"}
 
 	expectedForScope := func(scopes ...string) []string {
