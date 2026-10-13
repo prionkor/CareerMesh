@@ -44,6 +44,10 @@ type ListJobDescriptionsResponse struct {
 	Offset int                      `json:"offset"`
 }
 
+type ListJobDescriptionVersionsResponse struct {
+	Items []*models.JobDescriptionVersion `json:"items"`
+}
+
 func (h *Handler) Create(c fiber.Ctx) error {
 	var req JobDescriptionRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -53,9 +57,9 @@ func (h *Handler) Create(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	jobDescription := jobDescriptionFromRequest(req)
-	jobDescription.UserID = middleware.UserID(c)
-	created, err := h.service.Create(c.Context(), jobDescription)
+	jobDescription := &models.JobDescription{UserID: middleware.UserID(c)}
+	version := jobDescriptionVersionFromRequest(req)
+	created, err := h.service.Create(c.Context(), jobDescription, version)
 	if err != nil {
 		return handleServiceError(c, "create job description", err)
 	}
@@ -130,15 +134,67 @@ func (h *Handler) Update(c fiber.Ctx) error {
 		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
 	}
 
-	jobDescription := jobDescriptionFromRequest(req)
-	jobDescription.ID = id
-	jobDescription.UserID = saved.UserID
-	updated, err := h.service.Update(c.Context(), jobDescription)
+	version := jobDescriptionVersionFromRequest(req)
+	updated, err := h.service.CreateVersion(c.Context(), id, version)
 	if err != nil {
-		return handleServiceError(c, "update job description", err)
+		return handleServiceError(c, "create job description version", err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(updated)
+}
+
+func (h *Handler) ListVersions(c fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid job description id")
+	}
+
+	jobDescription, err := h.service.GetByID(c.Context(), id)
+	if err != nil {
+		return handleServiceError(c, "get job description for version history", err)
+	}
+	if !authorization.CanAccessResource(
+		middleware.UserID(c), jobDescription.UserID, middleware.Permissions(c),
+		authorization.PermJobDescriptionsReadOwn, authorization.PermJobDescriptionsReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
+	versions, err := h.service.ListVersions(c.Context(), id)
+	if err != nil {
+		return handleServiceError(c, "list job description versions", err)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(ListJobDescriptionVersionsResponse{Items: versions})
+}
+
+func (h *Handler) GetVersion(c fiber.Ctx) error {
+	jobDescriptionID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid job description id")
+	}
+	versionID, err := uuid.Parse(c.Params("versionID"))
+	if err != nil {
+		return httpapi.WriteError(c, fiber.StatusBadRequest, "invalid job description version id")
+	}
+
+	jobDescription, err := h.service.GetByID(c.Context(), jobDescriptionID)
+	if err != nil {
+		return handleServiceError(c, "get job description for version", err)
+	}
+	if !authorization.CanAccessResource(
+		middleware.UserID(c), jobDescription.UserID, middleware.Permissions(c),
+		authorization.PermJobDescriptionsReadOwn, authorization.PermJobDescriptionsReadAll,
+	) {
+		return httpapi.WriteError(c, fiber.StatusForbidden, "insufficient permissions")
+	}
+
+	version, err := h.service.GetVersion(c.Context(), jobDescriptionID, versionID)
+	if err != nil {
+		return handleServiceError(c, "get job description version", err)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(version)
 }
 
 func (h *Handler) Delete(c fiber.Ctx) error {
@@ -167,8 +223,8 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-func jobDescriptionFromRequest(req JobDescriptionRequest) *models.JobDescription {
-	return &models.JobDescription{
+func jobDescriptionVersionFromRequest(req JobDescriptionRequest) *models.JobDescriptionVersion {
+	return &models.JobDescriptionVersion{
 		Title: req.Title, Company: req.Company, CompanyWebsite: req.CompanyWebsite,
 		SourceURL: req.SourceURL, Location: req.Location, EmploymentType: req.EmploymentType,
 		OriginalText: req.OriginalText,

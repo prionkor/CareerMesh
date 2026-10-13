@@ -5,7 +5,24 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/prionkor/careermesh/models"
 )
+
+func TestJobDescriptionVersionFromRequest(t *testing.T) {
+	employmentType := models.EmploymentTypeFullTime
+	version := jobDescriptionVersionFromRequest(JobDescriptionRequest{
+		Title: "Senior Engineer", Company: "Example Corp", CompanyWebsite: "https://example.com",
+		SourceURL: "https://jobs.example.com/role", Location: "Remote",
+		EmploymentType: &employmentType, OriginalText: "Original posting",
+	})
+
+	if version.Title != "Senior Engineer" || version.Company != "Example Corp" ||
+		version.CompanyWebsite != "https://example.com" || version.SourceURL != "https://jobs.example.com/role" ||
+		version.Location != "Remote" || version.EmploymentType == nil || *version.EmploymentType != employmentType ||
+		version.OriginalText != "Original posting" {
+		t.Fatalf("jobDescriptionVersionFromRequest() = %+v", version)
+	}
+}
 
 func TestHasJobApplications(t *testing.T) {
 	tests := []struct {

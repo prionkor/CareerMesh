@@ -17,8 +17,8 @@ func TestJobDescriptionCRUDAndPagination(t *testing.T) {
 
 	firstText := "  Build reliable systems.\nKeep this text verbatim.  "
 	first := createJobDescription(t, app, token, jobDescriptionBody(firstText))
-	if first.OriginalText != firstText {
-		t.Fatalf("create changed original text: got %q, want %q", first.OriginalText, firstText)
+	if first.CurrentVersion == nil || first.CurrentVersion.VersionNumber != 1 || first.CurrentVersion.OriginalText != firstText {
+		t.Fatalf("create did not preserve the initial version: %+v", first.CurrentVersion)
 	}
 
 	second := createJobDescription(t, app, token, jobDescriptionBody("Second posting"))
@@ -32,11 +32,44 @@ func TestJobDescriptionCRUDAndPagination(t *testing.T) {
 	}
 	var updated models.JobDescription
 	decodeJSON(t, updateResp, &updated)
-	if updated.OriginalText != updateBody["original_text"].(string) {
-		t.Fatalf("update did not replace original text verbatim: got %q", updated.OriginalText)
+	if updated.CurrentVersion == nil || updated.CurrentVersion.VersionNumber != 2 ||
+		updated.CurrentVersionID == first.CurrentVersionID ||
+		updated.CurrentVersion.OriginalText != updateBody["original_text"].(string) {
+		t.Fatalf("update did not advance to a new current version: %+v", updated)
 	}
-	if updated.CompanyWebsite != "" || updated.SourceURL != "" || updated.EmploymentType != nil {
-		t.Fatalf("update did not clear optional values: %+v", updated)
+	if updated.CurrentVersion.CompanyWebsite != "" || updated.CurrentVersion.SourceURL != "" || updated.CurrentVersion.EmploymentType != nil {
+		t.Fatalf("update did not clear optional values in the new version: %+v", updated.CurrentVersion)
+	}
+
+	versionsResp := doRequest(t, app, http.MethodGet, "/api/v1/job-descriptions/"+first.ID.String()+"/versions", token, nil)
+	if versionsResp.StatusCode != http.StatusOK {
+		t.Fatalf("list job description versions: expected 200, got %d", versionsResp.StatusCode)
+	}
+	var versionsPage struct {
+		Items []models.JobDescriptionVersion `json:"items"`
+	}
+	decodeJSON(t, versionsResp, &versionsPage)
+	if len(versionsPage.Items) != 2 || versionsPage.Items[0].ID != first.CurrentVersionID ||
+		versionsPage.Items[0].VersionNumber != 1 || versionsPage.Items[0].OriginalText != firstText ||
+		versionsPage.Items[1].ID != updated.CurrentVersionID || versionsPage.Items[1].VersionNumber != 2 {
+		t.Fatalf("unexpected job description version history: %+v", versionsPage.Items)
+	}
+
+	versionResp := doRequest(t, app, http.MethodGet,
+		"/api/v1/job-descriptions/"+first.ID.String()+"/versions/"+first.CurrentVersionID.String(), token, nil)
+	if versionResp.StatusCode != http.StatusOK {
+		t.Fatalf("get specific job description version: expected 200, got %d", versionResp.StatusCode)
+	}
+	var historicalVersion models.JobDescriptionVersion
+	decodeJSON(t, versionResp, &historicalVersion)
+	if historicalVersion.ID != first.CurrentVersionID || historicalVersion.OriginalText != firstText {
+		t.Fatalf("specific version changed after update: %+v", historicalVersion)
+	}
+
+	wrongParentVersionResp := doRequest(t, app, http.MethodGet,
+		"/api/v1/job-descriptions/"+first.ID.String()+"/versions/"+second.CurrentVersionID.String(), token, nil)
+	if wrongParentVersionResp.StatusCode != http.StatusNotFound {
+		t.Fatalf("version belonging to another job description: expected 404, got %d", wrongParentVersionResp.StatusCode)
 	}
 
 	getResp := doRequest(t, app, http.MethodGet, "/api/v1/job-descriptions/"+first.ID.String(), token, nil)
@@ -45,8 +78,9 @@ func TestJobDescriptionCRUDAndPagination(t *testing.T) {
 	}
 	var fetched models.JobDescription
 	decodeJSON(t, getResp, &fetched)
-	if fetched.OriginalText != updated.OriginalText {
-		t.Fatalf("get original_text = %q, want %q", fetched.OriginalText, updated.OriginalText)
+	if fetched.CurrentVersionID != updated.CurrentVersionID || fetched.CurrentVersion == nil ||
+		fetched.CurrentVersion.OriginalText != updated.CurrentVersion.OriginalText {
+		t.Fatalf("get did not return the current version: %+v", fetched)
 	}
 
 	listResp := doRequest(t, app, http.MethodGet, "/api/v1/job-descriptions?limit=1&offset=0", token, nil)
@@ -148,8 +182,9 @@ func TestJobDescriptionValidationAndOwnership(t *testing.T) {
 				body["source_url"] = test.sourceURL
 			}
 			created := createJobDescription(t, app, ownerToken, body)
-			if created.CompanyWebsite != test.companyURL || created.SourceURL != test.sourceURL {
-				t.Fatalf("optional URLs = (%q, %q), want (%q, %q)", created.CompanyWebsite, created.SourceURL, test.companyURL, test.sourceURL)
+			if created.CurrentVersion == nil || created.CurrentVersion.CompanyWebsite != test.companyURL ||
+				created.CurrentVersion.SourceURL != test.sourceURL {
+				t.Fatalf("optional URLs = (%+v), want (%q, %q)", created.CurrentVersion, test.companyURL, test.sourceURL)
 			}
 		})
 	}
@@ -173,6 +208,20 @@ func TestJobDescriptionValidationAndOwnership(t *testing.T) {
 		t.Fatalf("other user get: expected 403, got %d", getResp.StatusCode)
 	}
 	getResp.Body.Close()
+
+	versionsResp := doRequest(t, app, http.MethodGet,
+		"/api/v1/job-descriptions/"+created.ID.String()+"/versions", otherToken, nil)
+	if versionsResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("other user list versions: expected 403, got %d", versionsResp.StatusCode)
+	}
+	versionsResp.Body.Close()
+
+	versionResp := doRequest(t, app, http.MethodGet,
+		"/api/v1/job-descriptions/"+created.ID.String()+"/versions/"+created.CurrentVersionID.String(), otherToken, nil)
+	if versionResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("other user get version: expected 403, got %d", versionResp.StatusCode)
+	}
+	versionResp.Body.Close()
 
 	updateResp := doRequest(t, app, http.MethodPut, "/api/v1/job-descriptions/"+created.ID.String(), otherToken, validBody)
 	if updateResp.StatusCode != http.StatusForbidden {
@@ -203,6 +252,13 @@ func TestJobDescriptionValidationAndOwnership(t *testing.T) {
 		t.Fatalf("invalid ID: expected 400, got %d", invalidIDResp.StatusCode)
 	}
 	invalidIDResp.Body.Close()
+
+	invalidVersionIDResp := doRequest(t, app, http.MethodGet,
+		"/api/v1/job-descriptions/"+created.ID.String()+"/versions/not-a-uuid", ownerToken, nil)
+	if invalidVersionIDResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid version ID: expected 400, got %d", invalidVersionIDResp.StatusCode)
+	}
+	invalidVersionIDResp.Body.Close()
 
 	invalidLimitResp := doRequest(t, app, http.MethodGet, "/api/v1/job-descriptions?limit=0", ownerToken, nil)
 	if invalidLimitResp.StatusCode != http.StatusBadRequest {
@@ -241,6 +297,20 @@ func TestJobDescriptionAdminCanAccessAnotherUsersResource(t *testing.T) {
 		t.Fatalf("admin get: expected 200, got %d", getResp.StatusCode)
 	}
 	getResp.Body.Close()
+
+	versionsResp := doRequest(t, app, http.MethodGet,
+		"/api/v1/job-descriptions/"+created.ID.String()+"/versions", adminToken, nil)
+	if versionsResp.StatusCode != http.StatusOK {
+		t.Fatalf("admin list versions: expected 200, got %d", versionsResp.StatusCode)
+	}
+	versionsResp.Body.Close()
+
+	versionResp := doRequest(t, app, http.MethodGet,
+		"/api/v1/job-descriptions/"+created.ID.String()+"/versions/"+created.CurrentVersionID.String(), adminToken, nil)
+	if versionResp.StatusCode != http.StatusOK {
+		t.Fatalf("admin get version: expected 200, got %d", versionResp.StatusCode)
+	}
+	versionResp.Body.Close()
 
 	listResp := doRequest(t, app, http.MethodGet, "/api/v1/job-descriptions", adminToken, nil)
 	if listResp.StatusCode != http.StatusOK {

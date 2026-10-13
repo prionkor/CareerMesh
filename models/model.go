@@ -77,17 +77,26 @@ type Experience struct {
 }
 
 type JobDescription struct {
-	ID             uuid.UUID       `json:"id"`
-	UserID         uuid.UUID       `json:"user_id"`
-	Title          string          `json:"title"`
-	Company        string          `json:"company"`
-	CompanyWebsite string          `json:"company_website"`
-	SourceURL      string          `json:"source_url"`
-	Location       string          `json:"location"`
-	EmploymentType *EmploymentType `json:"employment_type"`
-	OriginalText   string          `json:"original_text"`
-	CreatedAt      time.Time       `json:"created_at"`
-	UpdatedAt      time.Time       `json:"updated_at"`
+	ID               uuid.UUID              `json:"id"`
+	UserID           uuid.UUID              `json:"user_id"`
+	CurrentVersionID uuid.UUID              `json:"current_version_id"`
+	CurrentVersion   *JobDescriptionVersion `json:"current_version,omitempty"`
+	CreatedAt        time.Time              `json:"created_at"`
+	UpdatedAt        time.Time              `json:"updated_at"`
+}
+
+type JobDescriptionVersion struct {
+	ID               uuid.UUID       `json:"id"`
+	JobDescriptionID uuid.UUID       `json:"job_description_id"`
+	VersionNumber    int             `json:"version_number"`
+	Title            string          `json:"title"`
+	Company          string          `json:"company"`
+	CompanyWebsite   string          `json:"company_website"`
+	SourceURL        string          `json:"source_url"`
+	Location         string          `json:"location"`
+	EmploymentType   *EmploymentType `json:"employment_type"`
+	OriginalText     string          `json:"original_text"`
+	CreatedAt        time.Time       `json:"created_at"`
 }
 
 // Date is a calendar date serialized as YYYY-MM-DD.

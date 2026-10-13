@@ -17,8 +17,8 @@ func NewService(repository *Repository) *Service {
 	return &Service{repository: repository}
 }
 
-func (s *Service) Create(ctx context.Context, jobDescription *models.JobDescription) (*models.JobDescription, error) {
-	created, err := s.repository.Create(ctx, jobDescription)
+func (s *Service) Create(ctx context.Context, jobDescription *models.JobDescription, version *models.JobDescriptionVersion) (*models.JobDescription, error) {
+	created, err := s.repository.Create(ctx, jobDescription, version)
 	if err != nil {
 		return nil, fmt.Errorf("create job description: %w", err)
 	}
@@ -33,6 +33,22 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.JobDescrip
 	return jobDescription, nil
 }
 
+func (s *Service) GetVersion(ctx context.Context, jobDescriptionID, versionID uuid.UUID) (*models.JobDescriptionVersion, error) {
+	version, err := s.repository.GetVersion(ctx, jobDescriptionID, versionID)
+	if err != nil {
+		return nil, fmt.Errorf("get job description version: %w", err)
+	}
+	return version, nil
+}
+
+func (s *Service) ListVersions(ctx context.Context, jobDescriptionID uuid.UUID) ([]*models.JobDescriptionVersion, error) {
+	versions, err := s.repository.ListVersions(ctx, jobDescriptionID)
+	if err != nil {
+		return nil, fmt.Errorf("list job description versions: %w", err)
+	}
+	return versions, nil
+}
+
 func (s *Service) List(ctx context.Context, userID *uuid.UUID, limit, offset int) ([]*models.JobDescription, error) {
 	jobDescriptions, err := s.repository.List(ctx, userID, limit, offset)
 	if err != nil {
@@ -41,12 +57,12 @@ func (s *Service) List(ctx context.Context, userID *uuid.UUID, limit, offset int
 	return jobDescriptions, nil
 }
 
-func (s *Service) Update(ctx context.Context, jobDescription *models.JobDescription) (*models.JobDescription, error) {
-	updated, err := s.repository.Update(ctx, jobDescription)
+func (s *Service) CreateVersion(ctx context.Context, jobDescriptionID uuid.UUID, version *models.JobDescriptionVersion) (*models.JobDescription, error) {
+	created, err := s.repository.CreateVersion(ctx, jobDescriptionID, version)
 	if err != nil {
-		return nil, fmt.Errorf("update job description: %w", err)
+		return nil, fmt.Errorf("create job description version: %w", err)
 	}
-	return updated, nil
+	return created, nil
 }
 
 func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
